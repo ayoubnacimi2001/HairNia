@@ -31,17 +31,17 @@ export default function App() {
   useEffect(() => {
     if (siteConfig) {
       document.title = siteConfig.seoTitle || siteConfig.siteName;
-      
+
       const metaDescription = document.querySelector('meta[name="description"]');
       if (metaDescription && siteConfig.seoDescription) {
         metaDescription.setAttribute('content', siteConfig.seoDescription);
       }
-      
+
       const metaKeywords = document.querySelector('meta[name="keywords"]');
       if (metaKeywords && siteConfig.seoKeywords) {
         metaKeywords.setAttribute('content', siteConfig.seoKeywords);
       }
-      
+
       if (siteConfig.themePrimaryColor) {
         document.documentElement.style.setProperty('--theme-primary', siteConfig.themePrimaryColor);
       } else {
@@ -51,8 +51,12 @@ export default function App() {
   }, [siteConfig]);
 
   useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+    let isMounted = true;
+
     import('./lib/firebase').then(({ auth }) => {
-      auth.onAuthStateChanged((user) => {
+      if (!isMounted) return;
+      unsubscribe = auth.onAuthStateChanged((user) => {
         useStore.getState().setUser(user);
       });
     });
@@ -69,6 +73,11 @@ export default function App() {
       }
     };
     loadConfig();
+
+    return () => {
+      isMounted = false;
+      if (unsubscribe) unsubscribe();
+    };
   }, []);
 
   return (

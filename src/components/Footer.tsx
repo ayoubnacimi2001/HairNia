@@ -31,17 +31,17 @@ export function Footer() {
               </a>
             </div>
           </div>
-          
+
           <div>
             <h3 className="font-serif italic text-lg mb-6 text-primary-400">Shop</h3>
             <ul className="space-y-4 text-[11px] uppercase tracking-widest text-[var(--foreground)]/60">
-              <li><Link to="/shop?category=barber-tools" className="hover:text-primary-400 transition-colors">Barber Tools</Link></li>
-              <li><Link to="/shop?category=beauty" className="hover:text-primary-400 transition-colors">Beauty Products</Link></li>
-              <li><Link to="/shop?category=wear" className="hover:text-primary-400 transition-colors">HairNia Wear</Link></li>
+              {siteConfig.categories?.slice(0, 3).map(cat => (
+                <li key={cat.id}><Link to={`/shop?category=${cat.id}`} className="hover:text-primary-400 transition-colors">{cat.name}</Link></li>
+              ))}
               <li><Link to="/shop" className="hover:text-primary-400 transition-colors">New Arrivals</Link></li>
             </ul>
           </div>
-          
+
           <div>
             <h3 className="font-serif italic text-lg mb-6 text-primary-400">Discover</h3>
             <ul className="space-y-4 text-[11px] uppercase tracking-widest text-[var(--foreground)]/60">
@@ -60,13 +60,13 @@ export function Footer() {
             <div className="mt-8 pt-6 border-t border-[var(--border)]">
               <h4 className="font-serif italic text-sm mb-4 text-[var(--foreground)]">Newsletter</h4>
               <form className="flex" onSubmit={(e) => e.preventDefault()}>
-                <input 
-                  type="email" 
-                  placeholder="EMAIL ADDRESS" 
+                <input
+                  type="email"
+                  placeholder="EMAIL ADDRESS"
                   className="w-full px-3 py-2 border border-[var(--border)] bg-[var(--background)] focus:outline-none focus:border-primary-400 text-[10px] tracking-widest uppercase placeholder:text-[var(--foreground)]/30"
                 />
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   className="px-4 py-2 bg-primary-400 text-black text-[10px] uppercase font-bold tracking-widest hover:opacity-90 transition-opacity"
                 >
                   Join
@@ -75,7 +75,7 @@ export function Footer() {
             </div>
           </div>
         </div>
-        
+
         <div className="border-t border-[var(--border)] mt-12 pt-8 flex flex-col md:flex-row justify-between items-center text-[10px] tracking-widest uppercase text-[var(--foreground)]/40">
           <p>&copy; {new Date().getFullYear()} HairNia LTD.</p>
           <div className="flex space-x-6 mt-4 md:mt-0">

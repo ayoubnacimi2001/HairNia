@@ -12,8 +12,7 @@ service cloud.firestore {
     function isAdmin() { 
       return isSignedIn() && (
         exists(/databases/$(database)/documents/admins/$(request.auth.uid)) || 
-        request.auth.token.email == 'ayoubnacimi2001@gmail.com' || 
-        request.auth.token.email == 'admin@hairnia.com'
+        (request.auth.token.email == 'ayoubnacimi2001@gmail.com' && request.auth.token.email_verified == true)
       ); 
     }
     function isValidId(id) { return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
@@ -24,7 +23,8 @@ service cloud.firestore {
     // --- Entity Validators --- //
     // Validation for User profile
     function isValidUser(data) {
-      return data.keys().hasAll(['email', 'role', 'createdAt', 'updatedAt', 'authProvider'])
+      return data.keys().hasOnly(['email', 'role', 'createdAt', 'updatedAt', 'authProvider', 'name'])
+        && data.keys().hasAll(['email', 'role', 'createdAt', 'updatedAt', 'authProvider'])
         && data.email is string && data.email.size() <= 200
         && data.role is string && (data.role == 'user' || data.role == 'admin')
         && data.authProvider is string && (data.authProvider == 'google' || data.authProvider == 'local')
@@ -35,12 +35,13 @@ service cloud.firestore {
 
     // Validation for Product
     function isValidProduct(data) {
-      return data.keys().hasAll(['title', 'description', 'price', 'category', 'stock', 'isBestSeller', 'createdAt', 'updatedAt'])
+      return data.keys().hasOnly(['title', 'description', 'price', 'category', 'stock', 'imageUrl', 'isBestSeller', 'createdAt', 'updatedAt'])
+        && data.keys().hasAll(['title', 'description', 'price', 'category', 'stock', 'isBestSeller', 'createdAt', 'updatedAt'])
         && data.title is string && data.title.size() <= 150
         && data.description is string && data.description.size() <= 5000
         && data.price is number && data.price >= 0
         && data.category is string && data.category.size() <= 100
-        && data.stock is number && data.stock >= 0
+        && data.stock is int && data.stock >= 0
         && (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() <= 3000000))
         && data.isBestSeller is bool
         && data.createdAt is timestamp
@@ -49,7 +50,8 @@ service cloud.firestore {
 
     // Validation for Order
     function isValidOrder(data) {
-      return data.keys().hasAll(['userId', 'totalAmount', 'status', 'createdAt', 'updatedAt'])
+      return data.keys().hasOnly(['userId', 'totalAmount', 'status', 'createdAt', 'updatedAt'])
+        && data.keys().hasAll(['userId', 'totalAmount', 'status', 'createdAt', 'updatedAt'])
         && data.userId is string && data.userId.size() <= 128
         && data.totalAmount is number && data.totalAmount >= 0
         && data.status is string && (data.status == 'pending' || data.status == 'processing' || data.status == 'shipped' || data.status == 'delivered' || data.status == 'cancelled')
@@ -59,15 +61,17 @@ service cloud.firestore {
     
     // Validation for OrderItem
     function isValidOrderItem(data) {
-      return data.keys().hasAll(['productId', 'quantity', 'price'])
+      return data.keys().hasOnly(['productId', 'quantity', 'price'])
+        && data.keys().hasAll(['productId', 'quantity', 'price'])
         && data.productId is string && data.productId.size() <= 128
-        && data.quantity is number && data.quantity > 0
+        && data.quantity is int && data.quantity > 0
         && data.price is number && data.price >= 0;
     }
 
     // Validation for Review
     function isValidReview(data) {
-      return data.keys().hasAll(['productId', 'userId', 'userName', 'rating', 'comment', 'createdAt', 'updatedAt'])
+      return data.keys().hasOnly(['productId', 'userId', 'userName', 'rating', 'comment', 'createdAt', 'updatedAt'])
+        && data.keys().hasAll(['productId', 'userId', 'userName', 'rating', 'comment', 'createdAt', 'updatedAt'])
         && data.productId is string && data.productId.size() <= 128
         && data.userId is string && data.userId.size() <= 128
         && data.userName is string && data.userName.size() <= 100
@@ -79,7 +83,8 @@ service cloud.firestore {
 
     // Validation for ContactMessage
     function isValidContactMessage(data) {
-      return data.keys().hasAll(['name', 'email', 'phone', 'message', 'createdAt'])
+      return data.keys().hasOnly(['name', 'email', 'phone', 'message', 'createdAt'])
+        && data.keys().hasAll(['name', 'email', 'phone', 'message', 'createdAt'])
         && data.name is string && data.name.size() <= 100
         && data.email is string && data.email.size() <= 200
         && data.phone is string && data.phone.size() <= 50
@@ -89,7 +94,8 @@ service cloud.firestore {
     
     // Validation for SiteConfig
     function isValidSiteConfig(data) {
-      return data.keys().hasAll(['siteName', 'heroTitle', 'heroSubtitle', 'contactEmail', 'aboutTitle', 'aboutSubtitle', 'aboutBody1', 'aboutBody2', 'seoTitle', 'seoDescription', 'seoKeywords', 'categories', 'updatedAt'])
+      return data.keys().hasOnly(['siteName', 'heroTitle', 'heroSubtitle', 'contactEmail', 'aboutTitle', 'aboutSubtitle', 'aboutBody1', 'aboutBody2', 'seoTitle', 'seoDescription', 'seoKeywords', 'categories', 'logoUrl', 'heroImageUrl', 'themePrimaryColor', 'updatedAt'])
+        && data.keys().hasAll(['siteName', 'heroTitle', 'heroSubtitle', 'contactEmail', 'aboutTitle', 'aboutSubtitle', 'aboutBody1', 'aboutBody2', 'seoTitle', 'seoDescription', 'seoKeywords', 'categories', 'updatedAt'])
         && data.siteName is string && data.siteName.size() <= 100
         && data.heroTitle is string && data.heroTitle.size() <= 200
         && data.heroSubtitle is string && data.heroSubtitle.size() <= 600
@@ -104,12 +110,14 @@ service cloud.firestore {
         && data.categories is list && data.categories.size() <= 50
         && (!('logoUrl' in data) || (data.logoUrl is string && data.logoUrl.size() <= 3000000))
         && (!('heroImageUrl' in data) || (data.heroImageUrl is string && data.heroImageUrl.size() <= 3000000))
+        && (!('themePrimaryColor' in data) || (data.themePrimaryColor is string && data.themePrimaryColor.size() <= 50))
         && data.updatedAt is timestamp;
     }
 
     // Validation for Article
     function isValidArticle(data) {
-      return data.keys().hasAll(['title', 'content', 'authorId', 'createdAt', 'updatedAt'])
+      return data.keys().hasOnly(['title', 'content', 'authorId', 'createdAt', 'updatedAt'])
+        && data.keys().hasAll(['title', 'content', 'authorId', 'createdAt', 'updatedAt'])
         && data.title is string && data.title.size() <= 200
         && data.content is string && data.content.size() <= 50000
         && data.authorId is string && data.authorId.size() <= 128
@@ -119,7 +127,8 @@ service cloud.firestore {
 
     // Admin Record Validator
     function isValidAdmin(data) {
-      return data.keys().hasAll(['createdAt', 'email'])
+      return data.keys().hasOnly(['createdAt', 'email'])
+        && data.keys().hasAll(['createdAt', 'email'])
         && data.createdAt is timestamp
         && data.email is string;
     }
@@ -132,8 +141,8 @@ service cloud.firestore {
       // Only readable by admins or self
       allow get: if isSignedIn() && isValidId(userId) && (isAdmin() || request.auth.uid == userId);
       allow list: if isAdmin();
-      // Only admins can promote others, unless it's the very first admin (handled manually or via token email match if needed, but let's lock it to admins or server functions)
-      allow write: if isAdmin() || (isSignedIn() && (incoming().email == 'ayoubnacimi2001@gmail.com' || incoming().email == 'admin@hairnia.com'));
+      allow create, update: if isAdmin() && isValidAdmin(incoming());
+      allow delete: if isAdmin();
     }
 
     // 2. Users
@@ -144,7 +153,7 @@ service cloud.firestore {
       allow create: if isSignedIn() && isValidId(userId) && request.auth.uid == userId
         && isValidUser(incoming())
         // Cannot self-assign admin unless actually an admin or the designated initial admin email
-        && (incoming().role == 'user' || (incoming().role == 'admin' && (isAdmin() || request.auth.token.email == 'ayoubnacimi2001@gmail.com')))
+        && (incoming().role == 'user' || (incoming().role == 'admin' && isAdmin()))
         && incoming().createdAt == request.time
         && incoming().updatedAt == request.time;
         
@@ -188,6 +197,7 @@ service cloud.firestore {
       allow create: if isSignedIn() && isValidId(orderId)
         && isValidOrder(incoming())
         && incoming().userId == request.auth.uid
+        && incoming().status == 'pending' // Users can only create pending orders
         && incoming().createdAt == request.time
         && incoming().updatedAt == request.time;
         
@@ -207,22 +217,50 @@ service cloud.firestore {
       // Order Items subcollection
       match /items/{itemId} {
         // Need to check parent order access
-        function isOrderOwner() {
-          return get(/databases/$(database)/documents/orders/$(orderId)).data.userId == request.auth.uid;
+        function getOrderForRead() {
+          return get(/databases/$(database)/documents/orders/$(orderId));
         }
-        function isValidOrderParent() {
-          return exists(/databases/$(database)/documents/orders/$(orderId));
+        function getOrderForWrite() {
+          // Always verify the order state AFTER the batch to prevent sneaking items into processing orders
+          return getAfter(/databases/$(database)/documents/orders/$(orderId));
+        }
+        function isOrderOwnerForRead() {
+          let order = getOrderForRead();
+          return order != null && order.data.userId == request.auth.uid;
+        }
+        function isOrderOwnerForWrite() {
+          let order = getOrderForWrite();
+          return order != null && order.data.userId == request.auth.uid;
+        }
+        function isOrderPendingForWrite() {
+          let order = getOrderForWrite();
+          return order != null && order.data.status == 'pending';
+        }
+        function isProductValid(productId, price, quantity) {
+          let product = get(/databases/$(database)/documents/products/$(productId));
+          return product != null 
+            && product.data.price == price 
+            && product.data.stock >= quantity;
         }
         
-        allow get: if isSignedIn() && isValidId(itemId) && (isAdmin() || isOrderOwner());
-        allow list: if isSignedIn() && (isAdmin() || isOrderOwner());
+        allow get: if isSignedIn() && isValidId(itemId) && (isAdmin() || isOrderOwnerForRead());
+        allow list: if isSignedIn() && (isAdmin() || isOrderOwnerForRead());
         
         allow create: if isSignedIn() && isValidId(itemId)
           // Ideally existing() on the parent isn't working if we batch create, wait, in a batch you can use getAfter() but let's just allow if user is matching the payload context
           && isValidOrderItem(incoming())
-          && (isAdmin() || request.auth.uid != null); // Basic check, better handled by server for order completion
+          && (isAdmin() || (isOrderOwnerForWrite() && isOrderPendingForWrite() && isProductValid(incoming().productId, incoming().price, incoming().quantity))); 
           
-        allow update, delete: if isAdmin();
+        allow update: if isSignedIn() && isValidId(itemId)
+          && isValidOrderItem(incoming())
+          && (
+            isAdmin() || 
+            (isOrderOwnerForWrite() && isOrderPendingForWrite() 
+              && incoming().productId == existing().productId 
+              && isProductValid(incoming().productId, incoming().price, incoming().quantity))
+          );
+          
+        allow delete: if isSignedIn() && isValidId(itemId) && (isAdmin() || (isOrderOwnerForWrite() && isOrderPendingForWrite()));
       }
     }
 
@@ -234,6 +272,7 @@ service cloud.firestore {
       allow create: if isSignedIn() && isValidId(reviewId)
         && isValidReview(incoming())
         && incoming().userId == request.auth.uid
+        && exists(/databases/$(database)/documents/products/$(incoming().productId)) // Prevent orphaned reviews
         && incoming().createdAt == request.time
         && incoming().updatedAt == request.time;
         

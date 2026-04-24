@@ -20,11 +20,11 @@ export function ShopPage() {
         const snap = await getDocs(q);
         const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         if (data.length === 0) {
-           setProducts([]);
+          setProducts([]);
         } else {
-           setProducts(data);
+          setProducts(data);
         }
-      } catch(err) {
+      } catch (err) {
         console.error(err);
       } finally {
         setLoading(false);
@@ -46,7 +46,7 @@ export function ShopPage() {
 
   const filteredProducts = useMemo(() => {
     let list = [...products];
-    
+
     // Filter by category
     if (categoryFilter !== 'all') {
       list = list.filter(p => p.category === categoryFilter);
@@ -58,7 +58,11 @@ export function ShopPage() {
     } else if (sortFilter === 'price-high') {
       list.sort((a, b) => b.price - a.price);
     } else if (sortFilter === 'newest') {
-      list.sort((a, b) => (a.isNew === b.isNew ? 0 : a.isNew ? -1 : 1));
+      list.sort((a, b) => {
+        const timeA = a.createdAt?.toMillis?.() || 0;
+        const timeB = b.createdAt?.toMillis?.() || 0;
+        return timeB - timeA;
+      });
     }
 
     return list;
@@ -67,23 +71,23 @@ export function ShopPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="flex flex-col md:flex-row gap-8">
-        
+
         {/* Sidebar Filters */}
         <aside className="w-full md:w-64 flex-shrink-0">
           <div className="bg-[var(--card)] border border-[var(--border)] p-6 sticky top-24">
             <h2 className="text-sm tracking-widest uppercase font-bold mb-6 flex items-center gap-2 pr-2 border-b border-[var(--border)] pb-4">
               <Filter className="h-4 w-4" /> Filters
             </h2>
-            
+
             <div className="space-y-8">
               <div>
                 <h3 className="font-serif italic text-lg mb-4 text-[var(--foreground)]">Categories</h3>
                 <div className="space-y-3 text-[11px] uppercase tracking-widest text-[var(--foreground)]/60">
                   <label className="flex items-center gap-3 cursor-pointer hover:text-primary-400 transition-colors">
                     <div className="relative flex items-center justify-center">
-                      <input 
-                        type="radio" 
-                        name="category" 
+                      <input
+                        type="radio"
+                        name="category"
                         checked={categoryFilter === 'all'}
                         onChange={() => setSearchParams({ category: 'all', sort: sortFilter })}
                         className="peer sr-only"
@@ -96,9 +100,9 @@ export function ShopPage() {
                   {siteConfig.categories?.map((cat) => (
                     <label key={cat.id} className="flex items-center gap-3 cursor-pointer hover:text-primary-400 transition-colors">
                       <div className="relative flex items-center justify-center">
-                        <input 
-                          type="radio" 
-                          name="category" 
+                        <input
+                          type="radio"
+                          name="category"
                           checked={categoryFilter === cat.id}
                           onChange={() => setSearchParams({ category: cat.id, sort: sortFilter })}
                           className="peer sr-only"
@@ -111,7 +115,7 @@ export function ShopPage() {
                   ))}
                 </div>
               </div>
-              
+
               <div>
                 <h3 className="font-serif italic text-lg mb-4 text-[var(--foreground)]">Sort By</h3>
                 <div className="space-y-3 text-[11px] uppercase tracking-widest text-[var(--foreground)]/60">
@@ -123,9 +127,9 @@ export function ShopPage() {
                   ].map((sort) => (
                     <label key={sort.val} className="flex items-center gap-3 cursor-pointer hover:text-primary-400 transition-colors">
                       <div className="relative flex items-center justify-center">
-                        <input 
-                          type="radio" 
-                          name="sort" 
+                        <input
+                          type="radio"
+                          name="sort"
                           checked={sortFilter === sort.val}
                           onChange={() => setSearchParams({ category: categoryFilter, sort: sort.val })}
                           className="peer sr-only"
@@ -157,48 +161,48 @@ export function ShopPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredProducts.map((product) => (
                 <div key={product.id} className="group bg-[var(--card)] border border-[var(--border)] overflow-hidden transition-all hover:border-primary-400/50 cursor-pointer flex flex-col">
-                <div className="relative aspect-square overflow-hidden bg-[var(--background)]">
-                  <img 
-                    src={product.imageUrl} 
-                    alt={product.title}
-                    className="w-full h-full object-cover mix-blend-luminosity opacity-80 group-hover:opacity-100 transition-opacity duration-500"
-                  />
-                  {product.isNew && (
-                    <div className="absolute top-3 left-3 bg-primary-400 text-black text-[9px] uppercase tracking-widest font-bold px-2 py-1">
-                      New
+                  <div className="relative aspect-square overflow-hidden bg-[var(--background)]">
+                    <img
+                      src={product.imageUrl}
+                      alt={product.title}
+                      className="w-full h-full object-cover mix-blend-luminosity opacity-80 group-hover:opacity-100 transition-opacity duration-500"
+                    />
+                    {product.isNew && (
+                      <div className="absolute top-3 left-3 bg-primary-400 text-black text-[9px] uppercase tracking-widest font-bold px-2 py-1">
+                        New
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-5 flex-1 flex flex-col justify-end">
+                    <div className="flex justify-between items-start mb-2">
+                      <p className="text-[10px] uppercase tracking-widest text-[var(--foreground)]/40">
+                        {siteConfig.categories?.find(c => c.id === product.category)?.name || product.category}
+                      </p>
+                      <div className="flex items-center text-primary-400 text-xs gap-1">
+                        <Star className="h-3 w-3 fill-current" />
+                        <span className="text-[var(--foreground)]">{product.rating}</span>
+                      </div>
                     </div>
-                  )}
-                </div>
-                <div className="p-5 flex-1 flex flex-col justify-end">
-                  <div className="flex justify-between items-start mb-2">
-                    <p className="text-[10px] uppercase tracking-widest text-[var(--foreground)]/40">
-                      {siteConfig.categories?.find(c => c.id === product.category)?.name || product.category}
-                    </p>
-                    <div className="flex items-center text-primary-400 text-xs gap-1">
-                      <Star className="h-3 w-3 fill-current" />
-                      <span className="text-[var(--foreground)]">{product.rating}</span>
+                    <h3 className="font-serif text-lg mb-4 line-clamp-2 h-14 group-hover:text-primary-400 transition-colors text-[var(--foreground)]">
+                      {product.title}
+                    </h3>
+                    <div className="flex justify-between items-center mt-auto">
+                      <span className="font-mono text-primary-400 font-bold">${product.price}</span>
+                      <button
+                        onClick={() => handleAddToCart(product)}
+                        className="bg-transparent border border-primary-400 text-primary-400 px-3 py-1.5 text-[10px] uppercase tracking-widest font-bold hover:bg-primary-400 hover:text-black transition-colors"
+                      >
+                        Add
+                      </button>
                     </div>
                   </div>
-                  <h3 className="font-serif text-lg mb-4 line-clamp-2 h-14 group-hover:text-primary-400 transition-colors text-[var(--foreground)]">
-                    {product.title}
-                  </h3>
-                  <div className="flex justify-between items-center mt-auto">
-                    <span className="font-mono text-primary-400 font-bold">${product.price}</span>
-                    <button 
-                      onClick={() => handleAddToCart(product)}
-                      className="bg-transparent border border-primary-400 text-primary-400 px-3 py-1.5 text-[10px] uppercase tracking-widest font-bold hover:bg-primary-400 hover:text-black transition-colors"
-                    >
-                      Add
-                    </button>
-                  </div>
                 </div>
-              </div>
-            ))}
-            {filteredProducts.length === 0 && (
-              <div className="col-span-full py-20 text-center text-[var(--foreground)]/40 text-sm uppercase tracking-widest">
-                No products found matching your filters.
-              </div>
-            )}
+              ))}
+              {filteredProducts.length === 0 && (
+                <div className="col-span-full py-20 text-center text-[var(--foreground)]/40 text-sm uppercase tracking-widest">
+                  No products found matching your filters.
+                </div>
+              )}
             </div>
           )}
         </main>

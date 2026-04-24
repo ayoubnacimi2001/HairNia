@@ -1,30 +1,65 @@
 import { useState } from 'react';
 import { useStore } from '../store/useStore';
 import { Minus, Plus, Trash2, ArrowRight } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { collection, doc, writeBatch, serverTimestamp } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 export function CartPage() {
-  const { cart, updateQuantity, removeFromCart, clearCart } = useStore();
+  const { cart, updateQuantity, removeFromCart, clearCart, user } = useStore();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
-  
+  const navigate = useNavigate();
+
   const subtotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
   const shipping = subtotal > 100 ? 0 : 15;
   const total = subtotal + (cart.length > 0 ? shipping : 0);
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
+    if (!user) {
+      alert('Please sign in to complete your purchase.');
+      navigate('/auth');
+      return;
+    }
+
     setIsCheckingOut(true);
-    // Simulate Stripe redirect or payment procressing
-    setTimeout(() => {
-      alert('This is a demo. In a real app, this would redirect to Stripe Checkout!');
+
+    try {
+      const batch = writeBatch(db);
+      const orderRef = doc(collection(db, 'orders'));
+
+      batch.set(orderRef, {
+        userId: user.uid,
+        totalAmount: Number(total.toFixed(2)),
+        status: 'pending',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+
+      cart.forEach((item) => {
+        const itemRef = doc(collection(db, `orders/${orderRef.id}/items`));
+        batch.set(itemRef, {
+          productId: item.id,
+          quantity: Number(item.quantity),
+          price: Number(item.price)
+        });
+      });
+
+      await batch.commit();
+      alert('Order placed successfully! In a real app, you would now be redirected to Stripe.');
       clearCart();
+      navigate('/');
+    } catch (err) {
+      console.error('Checkout failed:', err);
+      alert('Checkout failed. Product stock or price may have changed. Please refresh.');
+    } finally {
       setIsCheckingOut(false);
-    }, 1500);
+    }
   };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <h1 className="text-3xl font-serif italic mb-8">Shopping Cart</h1>
-      
+
       {cart.length === 0 ? (
         <div className="text-center py-20 bg-[var(--card)] border border-[var(--border)]">
           <h2 className="text-2xl font-serif italic mb-4">Your cart is empty</h2>
@@ -50,21 +85,21 @@ export function CartPage() {
                   </div>
                   <div className="flex justify-between items-center mt-4">
                     <div className="flex items-center gap-3 border border-[var(--border)] px-2 py-1 bg-[var(--background)]">
-                      <button 
+                      <button
                         onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))}
                         className="p-1 hover:text-primary-400 text-[var(--foreground)]/60 transition"
                       >
                         <Minus className="h-4 w-4" />
                       </button>
                       <span className="w-4 text-center text-xs font-mono">{item.quantity}</span>
-                      <button 
+                      <button
                         onClick={() => updateQuantity(item.id, item.quantity + 1)}
                         className="p-1 hover:text-primary-400 text-[var(--foreground)]/60 transition"
                       >
                         <Plus className="h-4 w-4" />
                       </button>
                     </div>
-                    <button 
+                    <button
                       onClick={() => removeFromCart(item.id)}
                       className="text-[var(--foreground)]/40 hover:text-red-500 p-2 transition"
                       aria-label="Remove item"
@@ -95,7 +130,7 @@ export function CartPage() {
                   <span className="font-mono font-bold text-2xl text-primary-400">${total.toFixed(2)}</span>
                 </div>
               </div>
-              <button 
+              <button
                 onClick={handleCheckout}
                 disabled={isCheckingOut}
                 className="w-full mt-8 bg-primary-400 text-black py-3 text-[10px] uppercase font-bold tracking-widest hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50"

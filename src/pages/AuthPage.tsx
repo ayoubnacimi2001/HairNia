@@ -18,13 +18,16 @@ export function AuthPage() {
 
   useEffect(() => {
     if (user) {
-      if (user.email === 'admin@hairnia.com' || user.email === 'ayoubnacimi2001@gmail.com') {
+      if (user.email === 'ayoubnacimi2001@gmail.com' && user.emailVerified) {
         setIsAdmin(true);
       } else {
         getDoc(doc(db, 'admins', user.uid)).then(doc => {
           if (doc.exists()) setIsAdmin(true);
+          else setIsAdmin(false);
         }).catch(err => console.error("Error checking admin status:", err));
       }
+    } else {
+      setIsAdmin(false);
     }
   }, [user]);
 
@@ -40,12 +43,12 @@ export function AuthPage() {
       setError('Please enter user ID/email and password');
       return;
     }
-    
+
     setLoading(true);
     setError('');
-    
+
     const emailToUse = getEmail(emailOrUsername);
-    
+
     try {
       let result;
       let isNewUser = false;
@@ -55,18 +58,18 @@ export function AuthPage() {
       } else {
         result = await signInWithEmailAndPassword(auth, emailToUse, password);
       }
-      
+
       const userDocRef = doc(db, 'users', result.user.uid);
-      
-      // Auto-assign admin if username is 'admin' OR if email is ayoubnacimi
-      const isSpecialAdmin = emailOrUsername.toLowerCase() === 'admin' || emailToUse === 'ayoubnacimi2001@gmail.com' || emailToUse === 'admin@hairnia.com';
-      
+
+      // Only auto-bootstrap the designated admin email
+      const isSpecialAdmin = emailToUse === 'ayoubnacimi2001@gmail.com';
+
       if (isNewUser) {
         // Create user document in the database
         await setDoc(userDocRef, {
           email: emailToUse,
           name: emailOrUsername, // Use they input as name initially
-          role: isSpecialAdmin ? 'admin' : 'user',
+          role: 'user', // Local signups are never verified instantly, so force 'user' to ensure clean creation
           authProvider: 'local',
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
@@ -75,16 +78,16 @@ export function AuthPage() {
 
       if (isSpecialAdmin) {
         try {
-          await setDoc(doc(db, 'admins', result.user.uid), { 
-            email: emailToUse, 
-            createdAt: serverTimestamp() 
+          await setDoc(doc(db, 'admins', result.user.uid), {
+            email: emailToUse,
+            createdAt: serverTimestamp()
           });
           setIsAdmin(true);
         } catch (e) {
           console.error('Failed to set admin status:', e);
         }
       }
-      
+
       navigate('/shop');
     } catch (err: any) {
       if (err.code === 'auth/operation-not-allowed') {
@@ -113,12 +116,12 @@ export function AuthPage() {
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
-      
+
       const userDocRef = doc(db, 'users', result.user.uid);
       const userDoc = await getDoc(userDocRef);
-      
-      const isSpecialAdmin = result.user.email === 'ayoubnacimi2001@gmail.com' || result.user.email === 'admin@hairnia.com';
-      
+
+      const isSpecialAdmin = result.user.email === 'ayoubnacimi2001@gmail.com';
+
       if (!userDoc.exists()) {
         try {
           await setDoc(userDocRef, {
@@ -137,16 +140,16 @@ export function AuthPage() {
       // Auto-setup admin for the specified email
       if (isSpecialAdmin) {
         try {
-          await setDoc(doc(db, 'admins', result.user.uid), { 
-            email: result.user.email, 
-            createdAt: serverTimestamp() 
+          await setDoc(doc(db, 'admins', result.user.uid), {
+            email: result.user.email,
+            createdAt: serverTimestamp()
           });
           setIsAdmin(true);
         } catch (e) {
           console.error('Failed to set admin status:', e);
         }
       }
-      
+
       navigate('/shop');
     } catch (err: any) {
       if (err.code === 'auth/popup-closed-by-user') {
@@ -174,36 +177,33 @@ export function AuthPage() {
         </div>
         <h2 className="text-2xl font-serif italic mb-2">Welcome, {user.displayName}</h2>
         <p className="text-[10px] uppercase tracking-widest text-[var(--foreground)]/60 mb-8">{user.email}</p>
-        
+
         <div className="space-y-4 text-center">
-           {isAdmin && (
-             <Link 
-               to="/admin"
-               className="w-full py-4 border border-[var(--border)] text-[var(--foreground)] font-bold text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:border-primary-400 transition-colors"
-             >
-               <Settings className="h-4 w-4" /> Admin Dashboard
-             </Link>
-           )}
-           {!isAdmin && user.email === 'ayoubnacimi2001@gmail.com' && (
-             <button 
-               onClick={async () => {
-                 try {
-                   await doc(db, 'admins', user.uid); // just to show
-                   // Actually we need to set it
-                   const { setDoc, serverTimestamp } = await import('firebase/firestore');
-                   await setDoc(doc(db, 'admins', user.uid), { email: user.email, createdAt: serverTimestamp() });
-                   setIsAdmin(true);
-                   alert('You are now an admin!');
-                 } catch (err) {
-                   console.error(err);
-                 }
-               }}
-               className="w-full py-4 border border-primary-500 text-primary-400 font-bold text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:border-primary-400 transition-colors"
-             >
-               Setup Admin Role
-             </button>
-           )}
-           <button 
+          {isAdmin && (
+            <Link
+              to="/admin"
+              className="w-full py-4 border border-[var(--border)] text-[var(--foreground)] font-bold text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:border-primary-400 transition-colors"
+            >
+              <Settings className="h-4 w-4" /> Admin Dashboard
+            </Link>
+          )}
+          {!isAdmin && user.email === 'ayoubnacimi2001@gmail.com' && user.emailVerified && (
+            <button
+              onClick={async () => {
+                try {
+                  await setDoc(doc(db, 'admins', user.uid), { email: user.email, createdAt: serverTimestamp() });
+                  setIsAdmin(true);
+                  alert('You are now an admin!');
+                } catch (err) {
+                  console.error(err);
+                }
+              }}
+              className="w-full py-4 border border-primary-500 text-primary-400 font-bold text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:border-primary-400 transition-colors"
+            >
+              Setup Admin Role
+            </button>
+          )}
+          <button
             onClick={handleLogout}
             className="w-full py-4 border border-[var(--border)] text-[var(--foreground)]/60 font-bold text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-[var(--border)] hover:text-white transition-colors"
           >
@@ -280,7 +280,7 @@ export function AuthPage() {
           </div>
         </div>
 
-         <button
+        <button
           onClick={handleGoogleLogin}
           disabled={loading}
           className="w-full flex items-center justify-center gap-3 px-4 py-4 bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)] font-bold text-[10px] uppercase tracking-widest hover:border-primary-400 transition-colors disabled:opacity-50"

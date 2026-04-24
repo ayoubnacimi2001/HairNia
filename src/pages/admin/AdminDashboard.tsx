@@ -52,24 +52,27 @@ export function AdminDashboard() {
   const handleCancelColor = () => {
     const revertColor = siteConfig.themePrimaryColor || defaultThemeColor;
     setPreviewColor(revertColor);
-    setConfigForm(prev => ({...prev, themePrimaryColor: revertColor}));
+    setConfigForm(prev => ({ ...prev, themePrimaryColor: revertColor }));
   };
 
   useEffect(() => {
     if (!user) {
       setLoading(false);
+      setIsAdmin(false);
       return;
     }
-    
+
     // Check if user is admin
     const checkAdmin = async () => {
       try {
-        if (user.email === 'admin@hairnia.com' || user.email === 'ayoubnacimi2001@gmail.com') {
+        if (user.email === 'ayoubnacimi2001@gmail.com' && user.emailVerified) {
           setIsAdmin(true);
         } else {
           const adminDoc = await getDoc(doc(db, 'admins', user.uid));
           if (adminDoc.exists()) {
             setIsAdmin(true);
+          } else {
+            setIsAdmin(false);
           }
         }
       } catch (err) {
@@ -78,7 +81,7 @@ export function AdminDashboard() {
         setLoading(false);
       }
     };
-    
+
     checkAdmin();
   }, [user]);
 
@@ -112,12 +115,12 @@ export function AdminDashboard() {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        
+
         // Use PNG for logos to preserve transparency, JPEG for hero images
         const format = field === 'logoUrl' ? 'image/png' : 'image/jpeg';
         const quality = field === 'logoUrl' ? 1 : 0.7;
         const dataUrl = canvas.toDataURL(format, quality);
-        
+
         setConfigForm(prev => ({ ...prev, [field]: dataUrl }));
       };
       img.src = event.target?.result as string;
@@ -156,18 +159,18 @@ export function AdminDashboard() {
   return (
     <div className="max-w-4xl mx-auto px-4 py-16">
       <h1 className="text-3xl font-serif italic mb-8">Admin Dashboard</h1>
-      
+
       <div className="bg-[var(--card)] border border-[var(--border)] p-8">
         <h2 className="text-xl font-bold uppercase tracking-widest text-[11px] mb-6 border-b border-[var(--border)] pb-4">Global Site Settings</h2>
-        
+
         <form onSubmit={handleSaveConfig} className="space-y-6">
           <h2 className="text-xl font-bold uppercase tracking-widest text-[11px] mt-8 mb-6 border-b border-[var(--border)] pb-4">Theme Customization</h2>
-          
+
           <div>
             <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Primary Accent Color</label>
             <div className="flex flex-col md:flex-row gap-4 items-end">
               <div className="flex-1">
-                <input 
+                <input
                   type="text"
                   value={previewColor}
                   onChange={(e) => setPreviewColor(e.target.value)}
@@ -176,14 +179,14 @@ export function AdminDashboard() {
                 />
               </div>
               <div className="w-12 h-[42px] border border-[var(--border)] rounded-sm overflow-hidden flex-shrink-0">
-                <input 
+                <input
                   type="color"
                   value={previewColor}
                   onChange={(e) => setPreviewColor(e.target.value)}
                   className="w-full h-full p-0 border-0 cursor-pointer object-cover scale-[2.0]"
                 />
               </div>
-              <button 
+              <button
                 type="button"
                 onClick={handleApplyColor}
                 disabled={saving}
@@ -191,7 +194,7 @@ export function AdminDashboard() {
               >
                 Apply
               </button>
-              <button 
+              <button
                 type="button"
                 onClick={handleCancelColor}
                 disabled={saving}
@@ -206,11 +209,11 @@ export function AdminDashboard() {
           <h2 className="text-xl font-bold uppercase tracking-widest text-[11px] mt-8 mb-6 border-b border-[var(--border)] pb-4">General Info</h2>
 
           <div>
-             <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Site Name</label>
-            <input 
+            <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Site Name</label>
+            <input
               type="text"
               value={configForm.siteName || ''}
-              onChange={(e) => setConfigForm({...configForm, siteName: e.target.value})}
+              onChange={(e) => setConfigForm({ ...configForm, siteName: e.target.value })}
               className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px]"
               required
             />
@@ -224,14 +227,14 @@ export function AdminDashboard() {
               {configForm.logoUrl && (
                 <img src={configForm.logoUrl} alt="Logo Preview" className="h-12 w-auto object-contain bg-black px-2 border border-[var(--border)]" />
               )}
-              <input 
-                type="hidden" 
-                value={configForm.logoUrl || ''} 
+              <input
+                type="hidden"
+                value={configForm.logoUrl || ''}
               />
-              <input 
-                type="file" 
+              <input
+                type="file"
                 accept="image/*"
-                onChange={handleImageUpload('logoUrl')} 
+                onChange={handleImageUpload('logoUrl')}
                 className="w-full text-[11px] file:mr-4 file:py-2 file:px-4 file:border-0 file:text-[10px] file:uppercase file:tracking-widest file:font-bold file:bg-primary-400 file:text-black hover:file:opacity-90"
               />
             </div>
@@ -246,101 +249,100 @@ export function AdminDashboard() {
               {configForm.heroImageUrl && (
                 <img src={configForm.heroImageUrl} alt="Hero Preview" className="w-20 h-10 object-cover bg-black border border-[var(--border)]" />
               )}
-              <input 
-                type="hidden" 
-                required 
-                value={configForm.heroImageUrl || ''} 
+              <input
+                type="hidden"
+                value={configForm.heroImageUrl || ''}
               />
-              <input 
-                type="file" 
+              <input
+                type="file"
                 accept="image/*"
-                onChange={handleImageUpload('heroImageUrl')} 
+                onChange={handleImageUpload('heroImageUrl')}
                 className="w-full text-[11px] file:mr-4 file:py-2 file:px-4 file:border-0 file:text-[10px] file:uppercase file:tracking-widest file:font-bold file:bg-primary-400 file:text-black hover:file:opacity-90"
               />
             </div>
           </div>
           <div>
             <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Hero Title</label>
-            <input 
+            <input
               type="text"
               value={configForm.heroTitle || ''}
-              onChange={(e) => setConfigForm({...configForm, heroTitle: e.target.value})}
+              onChange={(e) => setConfigForm({ ...configForm, heroTitle: e.target.value })}
               className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px]"
               required
             />
           </div>
           <div>
             <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Hero Subtitle</label>
-            <textarea 
+            <textarea
               value={configForm.heroSubtitle || ''}
-              onChange={(e) => setConfigForm({...configForm, heroSubtitle: e.target.value})}
+              onChange={(e) => setConfigForm({ ...configForm, heroSubtitle: e.target.value })}
               className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px] h-24 resize-none"
               required
             />
           </div>
           <div>
             <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Contact Email</label>
-            <input 
+            <input
               type="email"
               value={configForm.contactEmail || ''}
-              onChange={(e) => setConfigForm({...configForm, contactEmail: e.target.value})}
+              onChange={(e) => setConfigForm({ ...configForm, contactEmail: e.target.value })}
               className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px]"
               required
             />
           </div>
-          
+
           <div>
             <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">About Section Title</label>
-            <input 
+            <input
               type="text"
               value={configForm.aboutTitle || ''}
-              onChange={(e) => setConfigForm({...configForm, aboutTitle: e.target.value})}
+              onChange={(e) => setConfigForm({ ...configForm, aboutTitle: e.target.value })}
               className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px]"
               required
             />
           </div>
           <div>
             <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">About Section Subtitle</label>
-            <textarea 
+            <textarea
               value={configForm.aboutSubtitle || ''}
-              onChange={(e) => setConfigForm({...configForm, aboutSubtitle: e.target.value})}
+              onChange={(e) => setConfigForm({ ...configForm, aboutSubtitle: e.target.value })}
               className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px] h-24 resize-none"
               required
             />
           </div>
           <div>
             <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">About Body Paragraph 1</label>
-            <textarea 
+            <textarea
               value={configForm.aboutBody1 || ''}
-              onChange={(e) => setConfigForm({...configForm, aboutBody1: e.target.value})}
+              onChange={(e) => setConfigForm({ ...configForm, aboutBody1: e.target.value })}
               className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px] h-24 resize-none"
               required
             />
           </div>
           <div>
             <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">About Body Paragraph 2</label>
-            <textarea 
+            <textarea
               value={configForm.aboutBody2 || ''}
-              onChange={(e) => setConfigForm({...configForm, aboutBody2: e.target.value})}
+              onChange={(e) => setConfigForm({ ...configForm, aboutBody2: e.target.value })}
               className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px] h-24 resize-none"
               required
             />
           </div>
 
           <h2 className="text-xl font-bold uppercase tracking-widest text-[11px] mt-8 mb-6 border-b border-[var(--border)] pb-4">Product Categories</h2>
-          
+
           <div className="space-y-4">
             {configForm.categories?.map((cat, index) => (
               <div key={index} className="flex gap-4">
                 <div className="flex-1">
                   <label className="block text-[10px] uppercase tracking-widest font-bold mb-1">Category ID (no spaces)</label>
-                  <input 
+                  <input
                     type="text"
                     value={cat.id || ''}
                     onChange={(e) => {
                       const newCats = [...(configForm.categories || [])];
                       newCats[index].id = e.target.value.toLowerCase().replace(/\s+/g, '-');
-                      setConfigForm({...configForm, categories: newCats});
+                      setConfigForm({ ...configForm, categories: newCats });
                     }}
                     className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px]"
                     required
@@ -348,24 +350,24 @@ export function AdminDashboard() {
                 </div>
                 <div className="flex-1">
                   <label className="block text-[10px] uppercase tracking-widest font-bold mb-1">Display Name</label>
-                  <input 
+                  <input
                     type="text"
                     value={cat.name || ''}
                     onChange={(e) => {
                       const newCats = [...(configForm.categories || [])];
                       newCats[index].name = e.target.value;
-                      setConfigForm({...configForm, categories: newCats});
+                      setConfigForm({ ...configForm, categories: newCats });
                     }}
                     className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px]"
                     required
                   />
                 </div>
                 <div className="flex items-end">
-                  <button 
+                  <button
                     type="button"
                     onClick={() => {
                       const newCats = configForm.categories?.filter((_, i) => i !== index);
-                      setConfigForm({...configForm, categories: newCats});
+                      setConfigForm({ ...configForm, categories: newCats });
                     }}
                     className="px-4 py-3 bg-red-500/20 text-red-500 border border-red-500/50 hover:bg-red-500 hover:text-white transition-colors text-[10px] font-bold uppercase tracking-widest"
                   >
@@ -396,37 +398,37 @@ export function AdminDashboard() {
           </div>
 
           <h2 className="text-xl font-bold uppercase tracking-widest text-[11px] mt-8 mb-6 border-b border-[var(--border)] pb-4">SEO Settings</h2>
-          
+
           <div>
             <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Global SEO Title</label>
-            <input 
+            <input
               type="text"
               value={configForm.seoTitle || ''}
-              onChange={(e) => setConfigForm({...configForm, seoTitle: e.target.value})}
+              onChange={(e) => setConfigForm({ ...configForm, seoTitle: e.target.value })}
               className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px]"
               required
             />
           </div>
           <div>
             <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Global SEO Description</label>
-            <textarea 
+            <textarea
               value={configForm.seoDescription || ''}
-              onChange={(e) => setConfigForm({...configForm, seoDescription: e.target.value})}
+              onChange={(e) => setConfigForm({ ...configForm, seoDescription: e.target.value })}
               className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px] h-24 resize-none"
               required
             />
           </div>
           <div>
             <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Global SEO Keywords (comma separated)</label>
-            <textarea 
+            <textarea
               value={configForm.seoKeywords || ''}
-              onChange={(e) => setConfigForm({...configForm, seoKeywords: e.target.value})}
+              onChange={(e) => setConfigForm({ ...configForm, seoKeywords: e.target.value })}
               className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px] h-24 resize-none"
               required
             />
           </div>
 
-          <button 
+          <button
             type="submit"
             disabled={saving}
             className="px-6 py-3 bg-primary-400 text-black font-bold uppercase tracking-widest text-[10px] hover:opacity-90 disabled:opacity-50"
@@ -439,7 +441,7 @@ export function AdminDashboard() {
       <div className="mt-8 bg-[var(--card)] border border-[var(--border)] p-8">
         <h2 className="text-xl font-bold uppercase tracking-widest text-[11px] mb-6 border-b border-[var(--border)] pb-4">Product Management</h2>
         <p className="text-[10px] uppercase tracking-widest text-[var(--foreground)]/60 mb-6">Manage all your products, inventory, and pricing here.</p>
-        
+
         <Link to="/admin/products" className="inline-block px-6 py-3 bg-[var(--background)] border border-[var(--border)] text-primary-400 font-bold uppercase tracking-widest text-[10px] hover:border-primary-400">
           Manage Products
         </Link>

@@ -20,20 +20,28 @@ export function AdminProducts() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [products, setProducts] = useState<Product[]>([]);
-  
+
   const [isEditing, setIsEditing] = useState(false);
   const [currentProduct, setCurrentProduct] = useState<Partial<Product>>({
     title: '', description: '', price: 0, category: '', imageUrl: '', stock: 10, isBestSeller: false
   });
 
   useEffect(() => {
-    if (!user) { setLoading(false); return; }
+    if (!user) { setLoading(false); setIsAdmin(false); return; }
     const init = async () => {
       try {
-        const adminDoc = await getDoc(doc(db, 'admins', user.uid));
-        if (adminDoc.exists()) {
+        // Check hardcoded email with verification FIRST, fallback to admins collection
+        if (user.email === 'ayoubnacimi2001@gmail.com' && user.emailVerified) {
           setIsAdmin(true);
           fetchProducts();
+        } else {
+          const adminDoc = await getDoc(doc(db, 'admins', user.uid));
+          if (adminDoc.exists()) {
+            setIsAdmin(true);
+            fetchProducts();
+          } else {
+            setIsAdmin(false);
+          }
         }
       } catch (err) {
         console.error("Error check", err);
@@ -85,7 +93,7 @@ export function AdminProducts() {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        
+
         const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
         setCurrentProduct(prev => ({ ...prev, imageUrl: dataUrl }));
       };
@@ -103,13 +111,13 @@ export function AdminProducts() {
         description: currentProduct.description,
         price: Number(currentProduct.price),
         category: currentProduct.category,
-        imageUrl: currentProduct.imageUrl,
+        imageUrl: currentProduct.imageUrl || '',
         stock: Number(currentProduct.stock),
         isBestSeller: Boolean(currentProduct.isBestSeller),
         updatedAt: serverTimestamp(),
         ...(!currentProduct.id && { createdAt: serverTimestamp() })
       }, { merge: true });
-      
+
       alert('Product saved!');
       setIsEditing(false);
       const defaultCat = useStore.getState().siteConfig.categories?.[0]?.id || '';
@@ -141,11 +149,11 @@ export function AdminProducts() {
     <div className="max-w-7xl mx-auto px-4 py-16">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-serif italic">Product Management</h1>
-        <button 
-          onClick={() => { 
+        <button
+          onClick={() => {
             const defaultCat = useStore.getState().siteConfig.categories?.[0]?.id || '';
-            setIsEditing(true); 
-            setCurrentProduct({title: '', description: '', price: 0, category: defaultCat, imageUrl: '', stock: 10, isBestSeller: false}); 
+            setIsEditing(true);
+            setCurrentProduct({ title: '', description: '', price: 0, category: defaultCat, imageUrl: '', stock: 10, isBestSeller: false });
           }}
           className="flex items-center gap-2 bg-primary-400 text-black px-4 py-2 text-[10px] uppercase tracking-widest font-bold"
         >
@@ -156,58 +164,57 @@ export function AdminProducts() {
       {isEditing ? (
         <form onSubmit={handleSave} className="bg-[var(--card)] border border-[var(--border)] p-8 mb-8 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-             <div>
-               <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Title</label>
-               <input required value={currentProduct.title} onChange={e => setCurrentProduct({...currentProduct, title: e.target.value})} className="w-full bg-[var(--background)] border border-[var(--border)] p-3 text-[11px]" />
-             </div>
-             <div>
-               <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Price</label>
-               <input required type="number" step="0.01" value={currentProduct.price} onChange={e => setCurrentProduct({...currentProduct, price: Number(e.target.value)})} className="w-full bg-[var(--background)] border border-[var(--border)] p-3 text-[11px]" />
-             </div>
-             <div>
-               <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Category</label>
-               <select required value={currentProduct.category || ''} onChange={e => setCurrentProduct({...currentProduct, category: e.target.value})} className="w-full bg-[var(--background)] border border-[var(--border)] p-3 text-[11px]">
-                 <option value="" disabled>Select category</option>
-                 {useStore.getState().siteConfig.categories?.map(cat => (
-                   <option key={cat.id} value={cat.id}>{cat.name}</option>
-                 ))}
-               </select>
-             </div>
-             <div>
-               <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Stock</label>
-               <input required type="number" value={currentProduct.stock} onChange={e => setCurrentProduct({...currentProduct, stock: Number(e.target.value)})} className="w-full bg-[var(--background)] border border-[var(--border)] p-3 text-[11px]" />
-             </div>
-             <div className="md:col-span-2">
-               <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Product Image</label>
-               <div className="relative flex flex-col md:flex-row md:items-center gap-4 bg-[var(--background)] border border-[var(--border)] p-4 rounded-sm pt-8 md:pt-4">
-                 <div className="absolute top-2 right-2 bg-[var(--foreground)] text-[var(--background)] text-[9px] px-2 py-0.5 rounded font-mono opacity-80 hover:opacity-100 cursor-help transition-opacity z-10" title="Recommended size for best display">
-                   800 × 800 px
-                 </div>
-                 {currentProduct.imageUrl && (
-                   <img src={currentProduct.imageUrl} alt="Preview" className="w-20 h-20 object-cover bg-black border border-[var(--border)]" />
-                 )}
-                 <input 
-                   type="hidden" 
-                   required 
-                   value={currentProduct.imageUrl} 
-                 />
-                 <input 
-                   type="file" 
-                   accept="image/*"
-                   onChange={handleImageUpload} 
-                   className="w-full text-[11px] file:mr-4 file:py-2 file:px-4 file:border-0 file:text-[10px] file:uppercase file:tracking-widest file:font-bold file:bg-primary-400 file:text-black hover:file:opacity-90"
-                 />
-               </div>
-               <p className="text-[10px] text-[var(--foreground)]/50 mt-1">Images are automatically compressed.</p>
-             </div>
-             <div className="md:col-span-2">
-               <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Description</label>
-               <textarea required value={currentProduct.description} onChange={e => setCurrentProduct({...currentProduct, description: e.target.value})} className="w-full bg-[var(--background)] border border-[var(--border)] p-3 text-[11px] h-24 resize-none" />
-             </div>
-             <div className="md:col-span-2 flex items-center gap-2">
-               <input type="checkbox" checked={currentProduct.isBestSeller} onChange={e => setCurrentProduct({...currentProduct, isBestSeller: e.target.checked})} className="accent-primary-400" />
-               <label className="text-[10px] uppercase tracking-widest font-bold">Is Best Seller?</label>
-             </div>
+            <div>
+              <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Title</label>
+              <input required value={currentProduct.title} onChange={e => setCurrentProduct({ ...currentProduct, title: e.target.value })} className="w-full bg-[var(--background)] border border-[var(--border)] p-3 text-[11px]" />
+            </div>
+            <div>
+              <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Price</label>
+              <input required type="number" step="0.01" value={currentProduct.price} onChange={e => setCurrentProduct({ ...currentProduct, price: Number(e.target.value) })} className="w-full bg-[var(--background)] border border-[var(--border)] p-3 text-[11px]" />
+            </div>
+            <div>
+              <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Category</label>
+              <select required value={currentProduct.category || ''} onChange={e => setCurrentProduct({ ...currentProduct, category: e.target.value })} className="w-full bg-[var(--background)] border border-[var(--border)] p-3 text-[11px]">
+                <option value="" disabled>Select category</option>
+                {useStore.getState().siteConfig.categories?.map(cat => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Stock</label>
+              <input required type="number" value={currentProduct.stock} onChange={e => setCurrentProduct({ ...currentProduct, stock: Number(e.target.value) })} className="w-full bg-[var(--background)] border border-[var(--border)] p-3 text-[11px]" />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Product Image</label>
+              <div className="relative flex flex-col md:flex-row md:items-center gap-4 bg-[var(--background)] border border-[var(--border)] p-4 rounded-sm pt-8 md:pt-4">
+                <div className="absolute top-2 right-2 bg-[var(--foreground)] text-[var(--background)] text-[9px] px-2 py-0.5 rounded font-mono opacity-80 hover:opacity-100 cursor-help transition-opacity z-10" title="Recommended size for best display">
+                  800 × 800 px
+                </div>
+                {currentProduct.imageUrl && (
+                  <img src={currentProduct.imageUrl} alt="Preview" className="w-20 h-20 object-cover bg-black border border-[var(--border)]" />
+                )}
+                <input
+                  type="hidden"
+                  value={currentProduct.imageUrl}
+                />
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="w-full text-[11px] file:mr-4 file:py-2 file:px-4 file:border-0 file:text-[10px] file:uppercase file:tracking-widest file:font-bold file:bg-primary-400 file:text-black hover:file:opacity-90"
+                />
+              </div>
+              <p className="text-[10px] text-[var(--foreground)]/50 mt-1">Images are automatically compressed.</p>
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Description</label>
+              <textarea required value={currentProduct.description} onChange={e => setCurrentProduct({ ...currentProduct, description: e.target.value })} className="w-full bg-[var(--background)] border border-[var(--border)] p-3 text-[11px] h-24 resize-none" />
+            </div>
+            <div className="md:col-span-2 flex items-center gap-2">
+              <input type="checkbox" checked={currentProduct.isBestSeller} onChange={e => setCurrentProduct({ ...currentProduct, isBestSeller: e.target.checked })} className="accent-primary-400" />
+              <label className="text-[10px] uppercase tracking-widest font-bold">Is Best Seller?</label>
+            </div>
           </div>
           <div className="flex gap-4">
             <button type="submit" className="bg-primary-400 text-black px-6 py-3 text-[10px] uppercase font-bold tracking-widest hover:opacity-90">Save Product</button>
@@ -226,7 +233,7 @@ export function AdminProducts() {
                 </div>
               </div>
               <div className="flex items-center gap-4">
-                <button onClick={() => {setCurrentProduct(p); setIsEditing(true);}} className="p-2 hover:text-primary-400"><Edit2 className="h-4 w-4" /></button>
+                <button onClick={() => { setCurrentProduct(p); setIsEditing(true); }} className="p-2 hover:text-primary-400"><Edit2 className="h-4 w-4" /></button>
                 <button onClick={() => handleDelete(p.id)} className="p-2 hover:text-red-500"><Trash2 className="h-4 w-4" /></button>
               </div>
             </div>
