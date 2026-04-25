@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useStore } from '../../store/useStore';
 import { db } from '../../lib/firebase';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, collection, query, getDocs, orderBy, deleteDoc, addDoc } from 'firebase/firestore';
 import { Link } from 'react-router-dom';
+import { Trash2 } from 'lucide-react';
 
 export function AdminDashboard() {
   const { user, siteConfig, setSiteConfig } = useStore();
@@ -12,6 +13,74 @@ export function AdminDashboard() {
   const [saving, setSaving] = useState(false);
   const defaultThemeColor = '#d4af37';
   const [previewColor, setPreviewColor] = useState(siteConfig.themePrimaryColor || defaultThemeColor);
+
+  const [contactMessages, setContactMessages] = useState<any[]>([]);
+
+  const [blogPosts, setBlogPosts] = useState<any[]>([]);
+  const [newBlog, setNewBlog] = useState({ title: '', content: '', imageUrl: '' });
+  const [creatingBlog, setCreatingBlog] = useState(false);
+
+  const fetchContactMessages = async () => {
+    try {
+      const q = query(collection(db, 'contactMessages'), orderBy('createdAt', 'desc'));
+      const snap = await getDocs(q);
+      setContactMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    } catch (err) {
+      console.error("Failed to fetch contact messages:", err);
+    }
+  };
+
+  const fetchBlogPosts = async () => {
+    try {
+      const q = query(collection(db, 'blogs'), orderBy('createdAt', 'desc'));
+      const snap = await getDocs(q);
+      setBlogPosts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    } catch (err) {
+      console.error("Failed to fetch blog posts:", err);
+    }
+  };
+
+  const handleDeleteContactMessage = async (id: string) => {
+    if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce message ?')) return;
+    try {
+      await deleteDoc(doc(db, 'contactMessages', id));
+      fetchContactMessages(); // Refresh the list automatically
+    } catch (err) {
+      console.error(err);
+      alert('Failed to delete message.');
+    }
+  };
+
+  const handleCreateBlog = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newBlog.title || !newBlog.content) return;
+    setCreatingBlog(true);
+    try {
+      await addDoc(collection(db, 'blogs'), {
+        ...newBlog,
+        createdAt: serverTimestamp()
+      });
+      setNewBlog({ title: '', content: '', imageUrl: '' });
+      fetchBlogPosts();
+      alert('Blog post created successfully!');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to create blog post.');
+    } finally {
+      setCreatingBlog(false);
+    }
+  };
+
+  const handleDeleteBlog = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this blog post?')) return;
+    try {
+      await deleteDoc(doc(db, 'blogs', id));
+      fetchBlogPosts();
+    } catch (err) {
+      console.error(err);
+      alert('Failed to delete blog post.');
+    }
+  };
 
   useEffect(() => {
     if (previewColor) {
@@ -67,10 +136,14 @@ export function AdminDashboard() {
       try {
         if (user.email === 'ayoubnacimi2001@gmail.com' && user.emailVerified) {
           setIsAdmin(true);
+          fetchBlogPosts();
+          fetchContactMessages();
         } else {
           const adminDoc = await getDoc(doc(db, 'admins', user.uid));
           if (adminDoc.exists()) {
             setIsAdmin(true);
+            fetchBlogPosts();
+            fetchContactMessages();
           } else {
             setIsAdmin(false);
           }
@@ -445,6 +518,113 @@ export function AdminDashboard() {
         <Link to="/admin/products" className="inline-block px-6 py-3 bg-[var(--background)] border border-[var(--border)] text-primary-400 font-bold uppercase tracking-widest text-[10px] hover:border-primary-400">
           Manage Products
         </Link>
+      </div>
+
+      <div className="mt-8 bg-[var(--card)] border border-[var(--border)] p-8">
+        <h2 className="text-xl font-bold uppercase tracking-widest text-[11px] mb-6 border-b border-[var(--border)] pb-4">Contact Messages</h2>
+        <p className="text-[10px] uppercase tracking-widest text-[var(--foreground)]/60 mb-6">Messages sent by users from the Contact page.</p>
+
+        <div className="space-y-4">
+          {contactMessages.map(msg => (
+            <div key={msg.id} className="p-4 bg-[var(--background)] border border-[var(--border)] flex flex-col gap-2">
+              <div className="flex justify-between items-start border-b border-[var(--border)] pb-2 mb-2">
+                <div>
+                  <h4 className="font-bold text-[11px] uppercase tracking-widest">{msg.name}</h4>
+                  <p className="text-[10px] text-[var(--foreground)]/60">{msg.email} {msg.phone ? `| ${msg.phone}` : ''}</p>
+                </div>
+                <div className="flex items-center gap-4">
+                  <span className="text-[9px] uppercase tracking-widest text-[var(--foreground)]/40">
+                    {msg.createdAt?.toDate ? new Date(msg.createdAt.toDate()).toLocaleString() : 'Just now'}
+                  </span>
+                  <button onClick={() => handleDeleteContactMessage(msg.id)} className="p-1 text-[var(--foreground)]/40 hover:text-red-500 transition-colors" title="Supprimer">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              <p className="text-[11px] whitespace-pre-wrap">{msg.message}</p>
+            </div>
+          ))}
+          {contactMessages.length === 0 && <p className="text-[10px] uppercase tracking-widest text-[var(--foreground)]/40 text-center py-8">No messages received yet.</p>}
+        </div>
+      </div>
+
+      <div className="mt-8 bg-[var(--card)] border border-[var(--border)] p-8">
+        <h2 className="text-xl font-bold uppercase tracking-widest text-[11px] mb-6 border-b border-[var(--border)] pb-4">Blog Management</h2>
+
+        {/* Create Form */}
+        <div className="mb-10">
+          <h3 className="font-bold text-[11px] uppercase tracking-widest mb-4">Create New Post</h3>
+          <form onSubmit={handleCreateBlog} className="space-y-4">
+            <div>
+              <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Title</label>
+              <input
+                type="text"
+                value={newBlog.title}
+                onChange={e => setNewBlog({ ...newBlog, title: e.target.value })}
+                className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px]"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Content</label>
+              <textarea
+                value={newBlog.content}
+                onChange={e => setNewBlog({ ...newBlog, content: e.target.value })}
+                className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px] h-32 resize-none"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Image URL</label>
+              <input
+                type="url"
+                value={newBlog.imageUrl}
+                onChange={e => setNewBlog({ ...newBlog, imageUrl: e.target.value })}
+                className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px]"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={creatingBlog}
+              className="px-6 py-3 bg-primary-400 text-black font-bold uppercase tracking-widest text-[10px] hover:opacity-90 disabled:opacity-50"
+            >
+              {creatingBlog ? 'Creating...' : 'Publish Post'}
+            </button>
+          </form>
+        </div>
+
+        {/* List existing blogs */}
+        <div>
+          <h3 className="font-bold text-[11px] uppercase tracking-widest mb-4 border-t border-[var(--border)] pt-8">Published Posts</h3>
+          <div className="space-y-4">
+            {blogPosts.map(post => (
+              <div key={post.id} className="p-4 bg-[var(--background)] border border-[var(--border)] flex justify-between items-start gap-4">
+                <div className="flex gap-4 items-start w-full">
+                  {post.imageUrl && (
+                    <img src={post.imageUrl} alt={post.title} className="w-16 h-16 object-cover mix-blend-luminosity opacity-80 border border-[var(--border)] flex-shrink-0" />
+                  )}
+                  <div className="flex-1">
+                    <h4 className="font-bold text-[11px] uppercase tracking-widest">{post.title}</h4>
+                    <p className="text-[10px] text-[var(--foreground)]/60 mt-1 line-clamp-2 whitespace-pre-wrap">{post.content}</p>
+                    <p className="text-[9px] text-[var(--foreground)]/40 mt-2 uppercase tracking-widest">
+                      {post.createdAt?.toDate ? new Date(post.createdAt.toDate()).toLocaleString() : 'Just now'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleDeleteBlog(post.id)}
+                  className="p-2 text-[var(--foreground)]/40 hover:text-red-500 transition-colors flex-shrink-0"
+                  title="Delete Post"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+            {blogPosts.length === 0 && (
+              <p className="text-[10px] uppercase tracking-widest text-[var(--foreground)]/40 py-4">No published posts yet.</p>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

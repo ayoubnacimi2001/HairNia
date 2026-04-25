@@ -11,6 +11,7 @@ import { AboutPage } from './pages/AboutPage';
 import { AuthPage } from './pages/AuthPage';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { AdminProducts } from './pages/admin/AdminProducts';
+import { Blog } from './pages/Blog';
 import { AiWidget } from './components/AiWidget';
 import { ScrollToTop } from './components/ScrollToTop';
 import { db } from './lib/firebase';
@@ -92,6 +93,7 @@ export default function App() {
             <Route path="/cart" element={<CartPage />} />
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/about" element={<AboutPage />} />
+            <Route path="/blog" element={<Blog />} />
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/products" element={<AdminProducts />} />
