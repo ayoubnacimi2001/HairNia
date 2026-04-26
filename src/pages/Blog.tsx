@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { collection, query, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { Link } from 'react-router-dom'; // 🔥 Added this import
 
 interface BlogPost {
     id: string;
@@ -55,7 +56,12 @@ export function Blog() {
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {posts.map(post => (
-                        <article key={post.id} className="bg-[var(--card)] border border-[var(--border)] overflow-hidden flex flex-col group cursor-pointer hover:border-primary-400/50 transition-colors">
+                        // 🔥 Changed <article> to a clickable <Link> tag that points to the specific post ID
+                        <Link 
+                            to={`/blog/${post.id}`} 
+                            key={post.id} 
+                            className="bg-[var(--card)] border border-[var(--border)] overflow-hidden flex flex-col group cursor-pointer hover:border-primary-400/50 transition-colors"
+                        >
                             {post.imageUrl && (
                                 <div className="relative h-56 overflow-hidden bg-[var(--background)] border-b border-[var(--border)]">
                                     <img
@@ -76,9 +82,13 @@ export function Blog() {
                                     <span className="text-[9px] uppercase tracking-widest text-[var(--foreground)]/40">
                                         {post.createdAt?.toDate ? new Date(post.createdAt.toDate()).toLocaleDateString() : 'Just now'}
                                     </span>
+                                    {/* 🔥 Added a hidden gold button that reveals on hover */}
+                                    <span className="text-[9px] uppercase tracking-widest text-primary-400 font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+                                        Read More →
+                                    </span>
                                 </div>
                             </div>
-                        </article>
+                        </Link>
                     ))}
                 </div>
             )}

@@ -10,7 +10,8 @@ export function CartPage() {
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const navigate = useNavigate();
 
-  const subtotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+  // Bulletproof math using strict Numbers
+  const subtotal = cart.reduce((acc, item) => acc + (Number(item.price) * Number(item.quantity)), 0);
   const shipping = subtotal > 100 ? 0 : 15;
   const total = subtotal + (cart.length > 0 ? shipping : 0);
 
@@ -79,21 +80,26 @@ export function CartPage() {
                   <div>
                     <div className="flex justify-between">
                       <h3 className="font-serif italic text-lg">{item.title}</h3>
-                      <p className="font-mono font-bold text-primary-400">${(item.price * item.quantity).toFixed(2)}</p>
+                      {/* Added translate="no" to protect the number */}
+                      <p className="font-mono font-bold text-primary-400" translate="no">
+                        <span translate="yes">$</span>{(Number(item.price) * Number(item.quantity)).toFixed(2)}
+                      </p>
                     </div>
-                    <p className="text-[10px] uppercase tracking-widest text-[var(--foreground)]/60">${item.price} each</p>
+                    <p className="text-[10px] uppercase tracking-widest text-[var(--foreground)]/60" translate="no">
+                      <span translate="yes">$</span>{Number(item.price).toFixed(2)} <span translate="yes">each</span>
+                    </p>
                   </div>
                   <div className="flex justify-between items-center mt-4">
                     <div className="flex items-center gap-3 border border-[var(--border)] px-2 py-1 bg-[var(--background)]">
                       <button
-                        onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))}
+                        onClick={() => updateQuantity(item.id, Math.max(1, Number(item.quantity) - 1))}
                         className="p-1 hover:text-primary-400 text-[var(--foreground)]/60 transition"
                       >
                         <Minus className="h-4 w-4" />
                       </button>
-                      <span className="w-4 text-center text-xs font-mono">{item.quantity}</span>
+                      <span className="w-4 text-center text-xs font-mono" translate="no">{item.quantity}</span>
                       <button
-                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                        onClick={() => updateQuantity(item.id, Number(item.quantity) + 1)}
                         className="p-1 hover:text-primary-400 text-[var(--foreground)]/60 transition"
                       >
                         <Plus className="h-4 w-4" />
@@ -119,15 +125,23 @@ export function CartPage() {
               <div className="space-y-4 text-[11px] uppercase tracking-widest text-[var(--foreground)]/60">
                 <div className="flex justify-between">
                   <span>Subtotal</span>
-                  <span className="font-mono text-[var(--foreground)]">${subtotal.toFixed(2)}</span>
+                  {/* Protected the math from translation */}
+                  <span className="font-mono text-[var(--foreground)]" translate="no">
+                    <span translate="yes">$</span>{subtotal.toFixed(2)}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span>Shipping</span>
-                  <span className="font-mono text-[var(--foreground)]">{shipping === 0 ? 'Free' : `$${shipping.toFixed(2)}`}</span>
+                  <span className="font-mono text-[var(--foreground)]" translate="no">
+                    {shipping === 0 ? <span translate="yes">Free</span> : <><span translate="yes">$</span>{shipping.toFixed(2)}</>}
+                  </span>
                 </div>
                 <div className="pt-4 border-t border-[var(--border)] flex justify-between items-center text-[var(--foreground)]">
                   <span className="font-bold">Total</span>
-                  <span className="font-mono font-bold text-2xl text-primary-400">${total.toFixed(2)}</span>
+                  {/* Protected the math from translation */}
+                  <span className="font-mono font-bold text-2xl text-primary-400" translate="no">
+                    <span translate="yes">$</span>{total.toFixed(2)}
+                  </span>
                 </div>
               </div>
               <button

@@ -38,7 +38,7 @@ interface StoreState {
   updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
   
-  user: any | null; // basic firebase user object or null
+  user: any | null; 
   setUser: (user: any | null) => void;
   
   siteConfig: SiteConfig;
@@ -73,23 +73,31 @@ export const useStore = create<StoreState>()(
       toggleTheme: () => set((state) => ({ theme: state.theme === 'light' ? 'dark' : 'light' })),
       
       cart: [],
+      
+      // FIXED: Forced strict Number() conversions to prevent the string-math bug
       addToCart: (item) => set((state) => {
         const existing = state.cart.find((i) => i.id === item.id);
         if (existing) {
           return {
             cart: state.cart.map((i) =>
-              i.id === item.id ? { ...i, quantity: i.quantity + item.quantity } : i
+              i.id === item.id 
+                ? { ...i, quantity: Number(i.quantity) + Number(item.quantity) } 
+                : i
             ),
           };
         }
-        return { cart: [...state.cart, item] };
+        return { cart: [...state.cart, { ...item, quantity: Number(item.quantity) }] };
       }),
+      
       removeFromCart: (id) => set((state) => ({
         cart: state.cart.filter((i) => i.id !== id),
       })),
+      
+      // FIXED: Forced strict Number() conversions so the + and - buttons work instantly
       updateQuantity: (id, quantity) => set((state) => ({
-        cart: state.cart.map((i) => (i.id === id ? { ...i, quantity } : i)),
+        cart: state.cart.map((i) => (i.id === id ? { ...i, quantity: Number(quantity) } : i)),
       })),
+      
       clearCart: () => set({ cart: [] }),
       
       user: null,
@@ -100,7 +108,6 @@ export const useStore = create<StoreState>()(
     }),
     {
       name: 'hairnia-storage',
-      // only persist cart, theme, and siteConfig to save reads
       partialize: (state) => ({ theme: state.theme, cart: state.cart, siteConfig: state.siteConfig }),
     }
   )

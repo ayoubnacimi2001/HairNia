@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useStore } from '../../store/useStore';
 import { db } from '../../lib/firebase';
 import { collection, query, getDocs, doc, setDoc, deleteDoc, serverTimestamp, getDoc } from 'firebase/firestore';
-import { Trash2, Edit2, Plus } from 'lucide-react';
+import { Trash2, Edit2, Plus, ArrowLeft } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 interface Product {
   id: string;
@@ -13,6 +14,7 @@ interface Product {
   imageUrl: string;
   stock: number;
   isBestSeller: boolean;
+  rating?: number; // Added rating to the interface
 }
 
 export function AdminProducts() {
@@ -30,7 +32,6 @@ export function AdminProducts() {
     if (!user) { setLoading(false); setIsAdmin(false); return; }
     const init = async () => {
       try {
-        // Check hardcoded email with verification FIRST, fallback to admins collection
         if (user.email === 'ayoubnacimi2001@gmail.com' && user.emailVerified) {
           setIsAdmin(true);
           fetchProducts();
@@ -115,7 +116,8 @@ export function AdminProducts() {
         stock: Number(currentProduct.stock),
         isBestSeller: Boolean(currentProduct.isBestSeller),
         updatedAt: serverTimestamp(),
-        ...(!currentProduct.id && { createdAt: serverTimestamp() })
+        // Only set default rating of 5.0 when creating a brand new product
+        ...(!currentProduct.id && { createdAt: serverTimestamp(), rating: 5.0 })
       }, { merge: true });
 
       alert('Product saved!');
@@ -147,6 +149,15 @@ export function AdminProducts() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-16">
+      
+      {/* THE NEW BACK BUTTON */}
+      <Link 
+        to="/admin" 
+        className="mb-8 inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-[var(--foreground)]/60 hover:text-primary-400 transition-colors"
+      >
+        <ArrowLeft className="w-4 h-4" /> Back to Dashboard Menu
+      </Link>
+
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-serif italic">Product Management</h1>
         <button
