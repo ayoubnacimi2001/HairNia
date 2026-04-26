@@ -1,3 +1,4 @@
+import { Toast } from './components/Toast';
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { useStore } from './store/useStore';
@@ -103,6 +104,7 @@ export default function App() {
         </main>
         <Footer />
         <AiWidget />
+        <Toast />
       </div>
     </BrowserRouter>
   );

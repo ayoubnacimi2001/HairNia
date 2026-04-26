@@ -5,11 +5,21 @@ import { useStore } from '../store/useStore';
 import { collection, query, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
+ // Temporary local siteConfig — replace with your actual site config import if available
+ const siteConfig = {
+   categories: [
+     { id: 'all', name: 'All' },
+     { id: 'headphones', name: 'Headphones' },
+     { id: 'speakers', name: 'Speakers' },
+     { id: 'accessories', name: 'Accessories' }
+   ]
+ };
+
 export function ShopPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const categoryFilter = searchParams.get('category') || 'all';
   const sortFilter = searchParams.get('sort') || 'popularity';
-  const { addToCart, siteConfig } = useStore();
+  const { addToCart, showToast } = useStore();
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -41,7 +51,7 @@ export function ShopPage() {
       imageUrl: product.imageUrl,
       quantity: 1
     });
-    alert('Added to cart!');
+    showToast(`${product.title} added to cart!`);
   };
 
   const filteredProducts = useMemo(() => {

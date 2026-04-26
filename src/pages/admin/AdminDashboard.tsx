@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react'
 import { useStore } from '../../store/useStore';
 import { db } from '../../lib/firebase';
-import { doc, getDoc, setDoc, serverTimestamp, collection, query, getDocs, orderBy, limit, deleteDoc, addDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, collection, query, getDocs, orderBy, limit, deleteDoc, addDoc, updateDoc } from 'firebase/firestore';
 import { Link } from 'react-router-dom';
-// Added new icons for the sleek menu!
-import { Trash2, Settings, ShoppingBag, FileText, Inbox, ArrowLeft } from 'lucide-react';
+import { Trash2, Settings, ShoppingBag, FileText, Inbox, ArrowLeft, Receipt, ArrowRight, Edit2, X } from 'lucide-react';
 
 declare global {
     namespace JSX {
@@ -38,8 +37,27 @@ interface Subscriber {
     createdAt?: any;    
 }
 
+interface OrderItem {
+    productId: string;
+    price: number;
+    quantity: number;
+    title?: string;
+}
+
+interface Order {
+    id: string;
+    userId: string;
+    userEmail?: string;
+    totalAmount: number;
+    status: string;
+    deliveryPhone?: string;
+    deliveryAddress?: string;
+    createdAt?: any;
+    items?: OrderItem[];
+}
+
 export function AdminDashboard() {
-    const { user, siteConfig, setSiteConfig } = useStore();
+    const { user, siteConfig, setSiteConfig, showToast } = useStore();
     const [isAdmin, setIsAdmin] = useState(false);
     const [loading, setLoading] = useState(true);
     const [configForm, setConfigForm] = useState(siteConfig);
@@ -53,9 +71,23 @@ export function AdminDashboard() {
     const [creatingBlog, setCreatingBlog] = useState(false);
     const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
     
-    // 🔥 NEW: THE MASTER NAVIGATION STATE 🔥
-    const [activeTab, setActiveTab] = useState<'menu' | 'settings' | 'products' | 'blogs' | 'inbox'>('menu');
+    const [orders, setOrders] = useState<Order[]>([]);
+    const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+    const [loadingOrders, setLoadingOrders] = useState(false);
+    const [editingPost, setEditingPost] = useState<BlogPost | null>(null);
+
+    const [activeTab, setActiveTab] = useState<'menu' | 'settings' | 'products' | 'blogs' | 'inbox' | 'orders'>('menu');
     const [activeMessageTab, setActiveMessageTab] = useState<'contact' | 'subscribers'>('contact');
+
+    const [isScrolled, setIsScrolled] = useState(false);
+
+    useEffect(() => {
+        const handleScroll = () => {
+            setIsScrolled(window.scrollY > 100);
+        };
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
 
     const fetchContactMessages = async () => {
         try {
@@ -87,6 +119,25 @@ export function AdminDashboard() {
         }
     };
 
+    const fetchOrders = async () => {
+        setLoadingOrders(true);
+        try {
+            const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'), limit(50));
+            const snap = await getDocs(q);
+            const ordersList = await Promise.all(snap.docs.map(async (d) => {
+                const orderData = { id: d.id, ...d.data() } as Order;
+                const itemsSnap = await getDocs(collection(db, `orders/${d.id}/items`));
+                orderData.items = itemsSnap.docs.map(itemDoc => itemDoc.data() as OrderItem);
+                return orderData;
+            }));
+            setOrders(ordersList);
+        } catch (err) {
+            console.error("Failed to fetch orders:", err);
+        } finally {
+            setLoadingOrders(false);
+        }
+    };
+
     const handleDeleteContactMessage = async (id: string) => {
         if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce message ?')) return;
         try {
@@ -109,12 +160,36 @@ export function AdminDashboard() {
             });
             setNewBlog({ title: '', content: '', imageUrl: '' });
             fetchBlogPosts();
-            alert('Blog post created successfully!');
+            if(showToast) showToast('Article publié avec succès!');
+            else alert('Blog post created successfully!');
         } catch (err) {
             console.error(err);
             alert('Failed to create blog post.');
         } finally {
             setCreatingBlog(false);
+        }
+    };
+
+    const handleUpdateBlog = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingPost) return;
+        setSaving(true);
+        try {
+            const postRef = doc(db, 'blogs', editingPost.id);
+            await updateDoc(postRef, {
+                title: editingPost.title,
+                content: editingPost.content,
+                imageUrl: editingPost.imageUrl,
+                updatedAt: serverTimestamp()
+            });
+            setEditingPost(null);
+            fetchBlogPosts();
+            if(showToast) showToast('Article mis à jour!');
+        } catch (err) {
+            console.error(err);
+            alert('Failed to update post.');
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -126,6 +201,30 @@ export function AdminDashboard() {
         } catch (err) {
             console.error(err);
             alert('Failed to delete blog post.');
+        }
+    };
+
+    const updateOrderStatus = async (id: string, newStatus: string) => {
+        try {
+            await updateDoc(doc(db, 'orders', id), { status: newStatus });
+            setSelectedOrder(prev => prev ? {...prev, status: newStatus} : null);
+            fetchOrders();
+            if(showToast) showToast(`Statut mis à jour: ${newStatus}`);
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    // 🔥 NEW: DELETE ORDER LOGIC
+    const handleDeleteOrder = async (id: string) => {
+        if (!window.confirm('Êtes-vous sûr de vouloir supprimer cette commande livrée définitivement ?')) return;
+        try {
+            await deleteDoc(doc(db, 'orders', id));
+            fetchOrders();
+            if(showToast) showToast('Commande supprimée avec succès!');
+        } catch (err) {
+            console.error(err);
+            alert('Failed to delete order.');
         }
     };
 
@@ -167,7 +266,8 @@ export function AdminDashboard() {
                 updatedAt: serverTimestamp()
             });
             setSiteConfig(updatedConfig);
-            alert('Theme color applied successfully!');
+            if(showToast) showToast('Couleur appliquée avec succès!');
+            else alert('Theme color applied successfully!');
         } catch (err) {
             console.error(err);
             alert('Failed to save color.');
@@ -268,7 +368,8 @@ export function AdminDashboard() {
                 updatedAt: serverTimestamp()
             });
             setSiteConfig(configForm);
-            alert('Settings saved successfully!');
+            if(showToast) showToast('Paramètres sauvegardés!');
+            else alert('Settings saved successfully!');
         } catch (err) {
             console.error(err);
             alert('Failed to save settings.');
@@ -287,14 +388,28 @@ export function AdminDashboard() {
         );
     }
 
-    // Helper component for the Back Button
     const BackButton = () => (
-        <button 
-            onClick={() => setActiveTab('menu')} 
-            className="mb-8 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-[var(--foreground)]/60 hover:text-primary-400 transition-colors"
-        >
-            <ArrowLeft className="w-4 h-4" /> Back to Dashboard Menu
-        </button>
+        <>
+            <button 
+                onClick={() => { setActiveTab('menu'); window.scrollTo(0, 0); }} 
+                className={`flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-[var(--foreground)]/60 hover:text-primary-400 transition-all duration-300 ${
+                    isScrolled ? 'opacity-0 h-0 overflow-hidden mb-0 pointer-events-none' : 'opacity-100 h-auto mb-8'
+                }`}
+            >
+                <ArrowLeft className="w-4 h-4" /> Retour au Menu Principal
+            </button>
+
+            <button 
+                onClick={() => { setActiveTab('menu'); window.scrollTo(0, 0); }} 
+                className={`fixed top-24 left-6 sm:left-10 z-[500] w-12 h-12 flex items-center justify-center rounded-sm shadow-[0_10px_30px_rgba(0,0,0,0.5)] transition-all duration-500 hover:scale-105 group ${
+                    isScrolled ? 'translate-x-0 opacity-100' : '-translate-x-10 opacity-0 pointer-events-none'
+                }`}
+                style={{ backgroundColor: previewColor || 'var(--theme-primary)' }}
+                title="Retour au Menu"
+            >
+                <ArrowLeft className="w-6 h-6 text-black group-hover:-translate-x-1 transition-transform" />
+            </button>
+        </>
     );
 
     return (
@@ -306,10 +421,7 @@ export function AdminDashboard() {
             ========================================= */}
             {activeTab === 'menu' && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 animate-in fade-in duration-300">
-                    <button 
-                        onClick={() => setActiveTab('settings')}
-                        className="p-8 bg-[var(--card)] border border-[var(--border)] hover:border-primary-400 transition-all flex flex-col items-center justify-center gap-4 text-center group"
-                    >
+                    <button onClick={() => setActiveTab('settings')} className="p-8 bg-[var(--card)] border border-[var(--border)] hover:border-primary-400 transition-all flex flex-col items-center justify-center gap-4 text-center group">
                         <Settings className="w-10 h-10 text-[var(--foreground)]/40 group-hover:text-primary-400 transition-colors" />
                         <div>
                             <h2 className="font-bold uppercase tracking-widest text-[13px] mb-2 text-[var(--foreground)]"> General Settings</h2>
@@ -317,10 +429,7 @@ export function AdminDashboard() {
                         </div>
                     </button>
 
-                    <button 
-                        onClick={() => setActiveTab('products')}
-                        className="p-8 bg-[var(--card)] border border-[var(--border)] hover:border-primary-400 transition-all flex flex-col items-center justify-center gap-4 text-center group"
-                    >
+                    <button onClick={() => setActiveTab('products')} className="p-8 bg-[var(--card)] border border-[var(--border)] hover:border-primary-400 transition-all flex flex-col items-center justify-center gap-4 text-center group">
                         <ShoppingBag className="w-10 h-10 text-[var(--foreground)]/40 group-hover:text-primary-400 transition-colors" />
                         <div>
                             <h2 className="font-bold uppercase tracking-widest text-[13px] mb-2 text-[var(--foreground)]"> Categories & Products</h2>
@@ -328,10 +437,15 @@ export function AdminDashboard() {
                         </div>
                     </button>
 
-                    <button 
-                        onClick={() => setActiveTab('blogs')}
-                        className="p-8 bg-[var(--card)] border border-[var(--border)] hover:border-primary-400 transition-all flex flex-col items-center justify-center gap-4 text-center group"
-                    >
+                    <button onClick={() => { setActiveTab('orders'); fetchOrders(); }} className="p-8 bg-[var(--card)] border border-[var(--border)] hover:border-primary-400 transition-all flex flex-col items-center justify-center gap-4 text-center group">
+                        <Receipt className="w-10 h-10 text-[var(--foreground)]/40 group-hover:text-primary-400 transition-colors" />
+                        <div>
+                            <h2 className="font-bold uppercase tracking-widest text-[13px] mb-2 text-[var(--foreground)]"> Commandes Client</h2>
+                            <p className="text-[10px] text-[var(--foreground)]/60 uppercase tracking-widest">Suivi des ventes et livraisons</p>
+                        </div>
+                    </button>
+
+                    <button onClick={() => setActiveTab('blogs')} className="p-8 bg-[var(--card)] border border-[var(--border)] hover:border-primary-400 transition-all flex flex-col items-center justify-center gap-4 text-center group">
                         <FileText className="w-10 h-10 text-[var(--foreground)]/40 group-hover:text-primary-400 transition-colors" />
                         <div>
                             <h2 className="font-bold uppercase tracking-widest text-[13px] mb-2 text-[var(--foreground)]"> Gestion of Blog</h2>
@@ -339,10 +453,7 @@ export function AdminDashboard() {
                         </div>
                     </button>
 
-                    <button 
-                        onClick={() => setActiveTab('inbox')}
-                        className="p-8 bg-[var(--card)] border border-[var(--border)] hover:border-primary-400 transition-all flex flex-col items-center justify-center gap-4 text-center group"
-                    >
+                    <button onClick={() => setActiveTab('inbox')} className="sm:col-span-2 p-8 bg-[var(--card)] border border-[var(--border)] hover:border-primary-400 transition-all flex flex-col items-center justify-center gap-4 text-center group">
                         <Inbox className="w-10 h-10 text-[var(--foreground)]/40 group-hover:text-primary-400 transition-colors" />
                         <div>
                             <h2 className="font-bold uppercase tracking-widest text-[13px] mb-2 text-[var(--foreground)]"> Centre de Réception</h2>
@@ -352,12 +463,11 @@ export function AdminDashboard() {
                 </div>
             )}
 
-
             {/* =========================================
                 1. GENERAL SETTINGS VIEW
             ========================================= */}
             {activeTab === 'settings' && (
-                <div className="animate-in fade-in duration-300">
+                <div className="animate-in fade-in duration-300 relative">
                     <BackButton />
                     <div className="bg-[var(--card)] border border-[var(--border)] p-8">
                         <h2 className="text-xl font-bold uppercase tracking-widest text-[11px] mb-6 border-b border-[var(--border)] pb-4">General Site Settings</h2>
@@ -369,164 +479,88 @@ export function AdminDashboard() {
                                 <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Primary Accent Color</label>
                                 <div className="flex flex-col md:flex-row gap-4 items-end">
                                     <div className="flex-1">
-                                        <input
-                                            type="text"
-                                            value={previewColor}
-                                            onChange={(e) => setPreviewColor(e.target.value)}
-                                            className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px] font-mono uppercase"
-                                            placeholder="#d4af37"
-                                        />
+                                        <input type="text" value={previewColor} onChange={(e) => setPreviewColor(e.target.value)} className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px] font-mono uppercase" />
                                     </div>
                                     <div className="w-12 h-[42px] border border-[var(--border)] rounded-sm overflow-hidden flex-shrink-0">
-                                        <input
-                                            type="color"
-                                            value={previewColor}
-                                            onChange={(e) => setPreviewColor(e.target.value)}
-                                            className="w-full h-full p-0 border-0 cursor-pointer object-cover scale-[2.0]"
-                                        />
+                                        <input type="color" value={previewColor} onChange={(e) => setPreviewColor(e.target.value)} className="w-full h-full p-0 border-0 cursor-pointer object-cover scale-[2.0]" />
                                     </div>
-                                    <button
-                                        type="button"
-                                        onClick={handleApplyColor}
-                                        disabled={saving}
-                                        className="px-6 py-3 bg-primary-400 text-black font-bold uppercase tracking-widest text-[10px] hover:opacity-90 disabled:opacity-50 h-[42px] flex items-center justify-center whitespace-nowrap"
-                                    >
-                                        Apply
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={handleCancelColor}
-                                        disabled={saving}
-                                        className="px-6 py-3 bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--border)] font-bold uppercase tracking-widest text-[10px] disabled:opacity-50 h-[42px] flex items-center justify-center whitespace-nowrap transition-colors"
-                                    >
-                                        Cancel
-                                    </button>
+                                    <button type="button" onClick={handleApplyColor} disabled={saving} className="px-6 py-3 bg-primary-400 text-black font-bold uppercase tracking-widest text-[10px] hover:opacity-90 disabled:opacity-50 h-[42px]">Apply</button>
+                                    <button type="button" onClick={handleCancelColor} disabled={saving} className="px-6 py-3 bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--border)] font-bold uppercase tracking-widest text-[10px] disabled:opacity-50 h-[42px]">Cancel</button>
                                 </div>
                             </div>
 
                             <h2 className="text-xl font-bold uppercase tracking-widest text-[11px] mt-8 mb-6 border-b border-[var(--border)] pb-4">General Info & Images</h2>
-
                             <div>
                                 <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Site Name</label>
-                                <input
-                                    type="text"
-                                    value={configForm.siteName || ''}
-                                    onChange={(e) => setConfigForm({ ...configForm, siteName: e.target.value })}
-                                    className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px]"
-                                    required
-                                />
+                                <input type="text" value={configForm.siteName || ''} onChange={(e) => setConfigForm({ ...configForm, siteName: e.target.value })} className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px]" required />
                             </div>
+                            
                             <div>
-                                <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Logo Image</label>
+                                <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">
+                                    Logo Image <span className="text-[9px] text-[var(--foreground)]/50 normal-case font-normal">(Recommandé: 300x300px max, PNG/JPG)</span>
+                                </label>
                                 <div className="relative flex flex-col md:flex-row md:items-center gap-4 bg-[var(--background)] border border-[var(--border)] p-4 rounded-sm pt-8 md:pt-4">
                                     {configForm.logoUrl && <img src={configForm.logoUrl} alt="Logo" className="h-12 w-auto object-contain bg-black px-2 border border-[var(--border)]" />}
                                     <input type="file" accept="image/*" onChange={handleImageUpload('logoUrl')} className="w-full text-[11px] file:bg-primary-400 file:text-black hover:file:opacity-90" />
                                 </div>
                             </div>
+
                             <div>
-                                <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Hero Main Image</label>
+                                <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">
+                                    Hero Main Image <span className="text-[9px] text-[var(--foreground)]/50 normal-case font-normal">(Recommandé: 1200x800px max, haute qualité)</span>
+                                </label>
                                 <div className="relative flex flex-col md:flex-row md:items-center gap-4 bg-[var(--background)] border border-[var(--border)] p-4 rounded-sm pt-8 md:pt-4">
                                     {configForm.heroImageUrl && <img src={configForm.heroImageUrl} alt="Hero" className="w-20 h-10 object-cover bg-black border border-[var(--border)]" />}
                                     <input type="file" accept="image/*" onChange={handleImageUpload('heroImageUrl')} className="w-full text-[11px] file:bg-primary-400 file:text-black hover:file:opacity-90" />
                                 </div>
                             </div>
+
                             <div>
                                 <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Hero Title</label>
-                                <input
-                                    type="text"
-                                    value={configForm.heroTitle || ''}
-                                    onChange={(e) => setConfigForm({ ...configForm, heroTitle: e.target.value })}
-                                    className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px]"
-                                    required
-                                />
+                                <input type="text" value={configForm.heroTitle || ''} onChange={(e) => setConfigForm({ ...configForm, heroTitle: e.target.value })} className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px]" required />
                             </div>
                             <div>
                                 <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Hero Subtitle</label>
-                                <textarea
-                                    value={configForm.heroSubtitle || ''}
-                                    onChange={(e) => setConfigForm({ ...configForm, heroSubtitle: e.target.value })}
-                                    className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px] h-24 resize-none"
-                                    required
-                                />
+                                <textarea value={configForm.heroSubtitle || ''} onChange={(e) => setConfigForm({ ...configForm, heroSubtitle: e.target.value })} className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px] h-24 resize-none" required />
                             </div>
                             <div>
                                 <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Contact Email</label>
-                                <input
-                                    type="email"
-                                    value={configForm.contactEmail || ''}
-                                    onChange={(e) => setConfigForm({ ...configForm, contactEmail: e.target.value })}
-                                    className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px]"
-                                    required
-                                />
+                                <input type="email" value={configForm.contactEmail || ''} onChange={(e) => setConfigForm({ ...configForm, contactEmail: e.target.value })} className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px]" required />
                             </div>
 
                             <h2 className="text-xl font-bold uppercase tracking-widest text-[11px] mt-8 mb-6 border-b border-[var(--border)] pb-4">A Propos (About)</h2>
                             <div>
                                 <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">About Section Title</label>
-                                <input
-                                    type="text"
-                                    value={configForm.aboutTitle || ''}
-                                    onChange={(e) => setConfigForm({ ...configForm, aboutTitle: e.target.value })}
-                                    className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px]"
-                                />
+                                <input type="text" value={configForm.aboutTitle || ''} onChange={(e) => setConfigForm({ ...configForm, aboutTitle: e.target.value })} className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px]" />
                             </div>
                             <div>
                                 <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">About Section Subtitle</label>
-                                <textarea
-                                    value={configForm.aboutSubtitle || ''}
-                                    onChange={(e) => setConfigForm({ ...configForm, aboutSubtitle: e.target.value })}
-                                    className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px] h-24 resize-none"
-                                />
+                                <textarea value={configForm.aboutSubtitle || ''} onChange={(e) => setConfigForm({ ...configForm, aboutSubtitle: e.target.value })} className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px] h-24 resize-none" />
                             </div>
                             <div>
                                 <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">About Body Paragraph 1</label>
-                                <textarea
-                                    value={configForm.aboutBody1 || ''}
-                                    onChange={(e) => setConfigForm({ ...configForm, aboutBody1: e.target.value })}
-                                    className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px] h-24 resize-none"
-                                />
+                                <textarea value={configForm.aboutBody1 || ''} onChange={(e) => setConfigForm({ ...configForm, aboutBody1: e.target.value })} className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px] h-24 resize-none" />
                             </div>
                             <div>
                                 <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">About Body Paragraph 2</label>
-                                <textarea
-                                    value={configForm.aboutBody2 || ''}
-                                    onChange={(e) => setConfigForm({ ...configForm, aboutBody2: e.target.value })}
-                                    className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px] h-24 resize-none"
-                                />
+                                <textarea value={configForm.aboutBody2 || ''} onChange={(e) => setConfigForm({ ...configForm, aboutBody2: e.target.value })} className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px] h-24 resize-none" />
                             </div>
 
                             <h2 className="text-xl font-bold uppercase tracking-widest text-[11px] mt-8 mb-6 border-b border-[var(--border)] pb-4">SEO Settings</h2>
                             <div>
                                 <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Global SEO Title</label>
-                                <input
-                                    type="text"
-                                    value={configForm.seoTitle || ''}
-                                    onChange={(e) => setConfigForm({ ...configForm, seoTitle: e.target.value })}
-                                    className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px]"
-                                />
+                                <input type="text" value={configForm.seoTitle || ''} onChange={(e) => setConfigForm({ ...configForm, seoTitle: e.target.value })} className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px]" />
                             </div>
                             <div>
                                 <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Global SEO Description</label>
-                                <textarea
-                                    value={configForm.seoDescription || ''}
-                                    onChange={(e) => setConfigForm({ ...configForm, seoDescription: e.target.value })}
-                                    className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px] h-24 resize-none"
-                                />
+                                <textarea value={configForm.seoDescription || ''} onChange={(e) => setConfigForm({ ...configForm, seoDescription: e.target.value })} className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px] h-24 resize-none" />
                             </div>
                             <div>
-                                <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Global SEO Keywords</label>
-                                <textarea
-                                    value={configForm.seoKeywords || ''}
-                                    onChange={(e) => setConfigForm({ ...configForm, seoKeywords: e.target.value })}
-                                    className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px] h-24 resize-none"
-                                />
+                                <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Global SEO Keywords (Séparés par des virgules)</label>
+                                <textarea value={configForm.seoKeywords || ''} onChange={(e) => setConfigForm({ ...configForm, seoKeywords: e.target.value })} className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px] h-24 resize-none" />
                             </div>
 
-                            <button
-                                type="submit"
-                                disabled={saving}
-                                className="px-6 py-3 bg-primary-400 text-black font-bold uppercase tracking-widest text-[10px] hover:opacity-90 disabled:opacity-50 mt-8 w-full"
-                            >
+                            <button type="submit" disabled={saving} className="px-6 py-3 bg-primary-400 text-black font-bold uppercase tracking-widest text-[10px] mt-8 w-full hover:opacity-90 transition-opacity">
                                 {saving ? 'Saving...' : 'Save General Settings'}
                             </button>
                         </form>
@@ -534,14 +568,12 @@ export function AdminDashboard() {
                 </div>
             )}
 
-
             {/* =========================================
                 2. CATEGORIES & PRODUCTS VIEW
             ========================================= */}
             {activeTab === 'products' && (
-                <div className="animate-in fade-in duration-300">
+                <div className="animate-in fade-in duration-300 relative">
                     <BackButton />
-                    
                     <div className="bg-[var(--card)] border border-[var(--border)] p-8 mb-8">
                         <h2 className="text-xl font-bold uppercase tracking-widest text-[11px] mb-6 border-b border-[var(--border)] pb-4">Manage Categories</h2>
                         <form onSubmit={handleSaveConfig} className="space-y-4">
@@ -549,64 +581,37 @@ export function AdminDashboard() {
                                 <div key={index} className="flex gap-4">
                                     <div className="flex-1">
                                         <label className="block text-[10px] uppercase tracking-widest font-bold mb-1">Category ID (no spaces)</label>
-                                        <input
-                                            type="text"
-                                            value={cat.id || ''}
-                                            onChange={(e) => {
+                                        <input type="text" value={cat.id || ''} onChange={(e) => {
                                                 const newCats = [...(configForm.categories || [])];
                                                 newCats[index].id = e.target.value.toLowerCase().replace(/\s+/g, '-');
                                                 setConfigForm({ ...configForm, categories: newCats });
-                                            }}
-                                            className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px]"
-                                            required
-                                        />
+                                            }} className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px]" required />
                                     </div>
                                     <div className="flex-1">
                                         <label className="block text-[10px] uppercase tracking-widest font-bold mb-1">Display Name</label>
-                                        <input
-                                            type="text"
-                                            value={cat.name || ''}
-                                            onChange={(e) => {
+                                        <input type="text" value={cat.name || ''} onChange={(e) => {
                                                 const newCats = [...(configForm.categories || [])];
                                                 newCats[index].name = e.target.value;
                                                 setConfigForm({ ...configForm, categories: newCats });
-                                            }}
-                                            className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px]"
-                                            required
-                                        />
+                                            }} className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px]" required />
                                     </div>
                                     <div className="flex items-end">
-                                        <button
-                                            type="button"
-                                            onClick={() => {
+                                        <button type="button" onClick={() => {
                                                 const newCats = configForm.categories?.filter((_, i) => i !== index);
                                                 setConfigForm({ ...configForm, categories: newCats });
-                                            }}
-                                            className="px-4 py-3 bg-red-500/20 text-red-500 border border-red-500/50 hover:bg-red-500 hover:text-white transition-colors text-[10px] font-bold uppercase tracking-widest"
-                                        >
+                                            }} className="px-4 py-3 bg-red-500/20 text-red-500 border border-red-500/50 hover:bg-red-500 hover:text-white transition-colors text-[10px] font-bold uppercase tracking-widest">
                                             Remove
                                         </button>
                                     </div>
                                 </div>
                             ))}
                             <div className="flex gap-4 pt-4">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setConfigForm({
-                                            ...configForm,
-                                            categories: [...(configForm.categories || []), { id: `category-${Date.now()}`, name: 'New Category' }]
-                                        });
-                                    }}
-                                    className="px-4 py-3 bg-[var(--background)] border border-[var(--border)] text-primary-400 hover:border-primary-400 transition-colors text-[10px] font-bold uppercase tracking-widest"
-                                >
+                                <button type="button" onClick={() => {
+                                        setConfigForm({ ...configForm, categories: [...(configForm.categories || []), { id: `category-${Date.now()}`, name: 'New Category' }] });
+                                    }} className="px-4 py-3 bg-[var(--background)] border border-[var(--border)] text-primary-400 hover:border-primary-400 transition-colors text-[10px] font-bold uppercase tracking-widest">
                                     + Add Category
                                 </button>
-                                <button
-                                    type="submit"
-                                    disabled={saving}
-                                    className="px-6 py-3 bg-primary-400 text-black font-bold uppercase tracking-widest text-[10px] hover:opacity-90 disabled:opacity-50"
-                                >
+                                <button type="submit" disabled={saving} className="px-6 py-3 bg-primary-400 text-black font-bold uppercase tracking-widest text-[10px] hover:opacity-90 disabled:opacity-50">
                                     {saving ? 'Saving...' : 'Save Categories'}
                                 </button>
                             </div>
@@ -623,12 +628,57 @@ export function AdminDashboard() {
                 </div>
             )}
 
+            {/* =========================================
+                3. ORDERS (COMMANDES) VIEW
+            ========================================= */}
+            {activeTab === 'orders' && (
+                <div className="animate-in fade-in duration-300 relative">
+                    <BackButton />
+                    <div className="bg-[var(--card)] border border-[var(--border)] p-8">
+                        <h2 className="text-xl font-bold uppercase tracking-widest text-[11px] mb-6 border-b border-[var(--border)] pb-4">Suivi des Commandes</h2>
+                        <div className="space-y-4">
+                            {loadingOrders ? (
+                                <p className="text-center py-10 text-[10px] uppercase tracking-widest opacity-40">Chargement des commandes...</p>
+                            ) : orders.map(order => (
+                                <div key={order.id} className="p-5 bg-[var(--background)] border border-[var(--border)] flex justify-between items-center group hover:border-primary-400/50 transition-colors">
+                                    <div>
+                                        <p className="text-[9px] uppercase tracking-widest text-primary-400 font-bold mb-1">ID: {order.id.slice(0, 8)}</p>
+                                        <p className="text-[11px] font-mono text-[var(--foreground)]">${Number(order.totalAmount).toFixed(2)}</p>
+                                        <p className="text-[9px] text-[var(--foreground)]/40 uppercase mt-1">
+                                            {order.createdAt?.toDate ? new Date(order.createdAt.toDate()).toLocaleString() : 'Recent'}
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        <span className={`px-3 py-1 text-[8px] uppercase font-bold tracking-widest border transition-colors ${order.status === 'Livré' ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-primary-400/10 text-primary-400 border-primary-400/20'}`}>
+                                            {order.status}
+                                        </span>
+                                        
+                                        {/* 🔥 NEW: Delete button ONLY for Delivered orders */}
+                                        {order.status === 'Livré' && (
+                                            <button onClick={() => handleDeleteOrder(order.id)} className="p-2 text-[var(--foreground)]/40 hover:text-red-500 transition-colors" title="Supprimer la commande">
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        )}
+
+                                        <button onClick={() => setSelectedOrder(order)} className="p-2 hover:text-primary-400 transition-colors">
+                                            <ArrowRight className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                            {!loadingOrders && orders.length === 0 && (
+                                <p className="text-[10px] uppercase tracking-widest text-[var(--foreground)]/40 text-center py-8">Aucune commande pour le moment.</p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* =========================================
-                3. GESTION OF BLOG VIEW
+                4. GESTION OF BLOG VIEW
             ========================================= */}
             {activeTab === 'blogs' && (
-                <div className="animate-in fade-in duration-300">
+                <div className="animate-in fade-in duration-300 relative">
                     <BackButton />
                     <div className="bg-[var(--card)] border border-[var(--border)] p-8">
                         <h2 className="text-xl font-bold uppercase tracking-widest text-[11px] mb-6 border-b border-[var(--border)] pb-4">Blog Management</h2>
@@ -659,17 +709,24 @@ export function AdminDashboard() {
                             <div className="space-y-4">
                                 {blogPosts.map(post => (
                                     <div key={post.id} className="p-4 bg-[var(--background)] border border-[var(--border)] flex justify-between items-start gap-4">
-                                        <div className="flex gap-4 items-start w-full">
+                                        <div className="flex gap-4 items-start w-full overflow-hidden">
                                             {post.imageUrl && <img src={post.imageUrl} alt={post.title} className="w-16 h-16 object-cover mix-blend-luminosity opacity-80 border border-[var(--border)] flex-shrink-0" />}
-                                            <div className="flex-1">
-                                                <h4 className="font-bold text-[11px] uppercase tracking-widest">{post.title}</h4>
-                                                <p className="text-[10px] text-[var(--foreground)]/60 mt-1 line-clamp-2 whitespace-pre-wrap">{post.content}</p>
+                                            <div className="flex-1 min-w-0">
+                                                <h4 className="font-bold text-[11px] uppercase tracking-widest truncate">{post.title}</h4>
+                                                <p className="text-[10px] text-[var(--foreground)]/60 mt-1 line-clamp-2 break-words whitespace-pre-wrap">{post.content}</p>
                                                 <p className="text-[9px] text-[var(--foreground)]/40 mt-2 uppercase tracking-widest">
                                                     {post.createdAt?.toDate ? new Date(post.createdAt.toDate()).toLocaleString() : 'Just now'}
                                                 </p>
                                             </div>
                                         </div>
-                                        <button onClick={() => handleDeleteBlog(post.id)} className="p-2 text-[var(--foreground)]/40 hover:text-red-500 transition-colors flex-shrink-0" title="Delete Post"><Trash2 className="w-4 h-4" /></button>
+                                        <div className="flex flex-col gap-2 flex-shrink-0">
+                                            <button onClick={() => setEditingPost(post)} className="p-2 text-[var(--foreground)]/40 hover:text-primary-400 transition-colors" title="Edit Post">
+                                                <Edit2 className="w-4 h-4" />
+                                            </button>
+                                            <button onClick={() => handleDeleteBlog(post.id)} className="p-2 text-[var(--foreground)]/40 hover:text-red-500 transition-colors" title="Delete Post">
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
                                     </div>
                                 ))}
                                 {blogPosts.length === 0 && <p className="text-[10px] uppercase tracking-widest text-[var(--foreground)]/40 py-4">No published posts yet.</p>}
@@ -679,12 +736,11 @@ export function AdminDashboard() {
                 </div>
             )}
 
-
             {/* =========================================
-                4. CENTRE DE RÉCEPTION (INBOX) VIEW
+                5. CENTRE DE RÉCEPTION (INBOX) VIEW
             ========================================= */}
             {activeTab === 'inbox' && (
-                <div className="animate-in fade-in duration-300">
+                <div className="animate-in fade-in duration-300 relative">
                     <BackButton />
                     <div className="bg-[var(--card)] border border-[var(--border)] p-8">
                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-[var(--border)] pb-4 mb-6 gap-4">
@@ -753,6 +809,129 @@ export function AdminDashboard() {
                 </div>
             )}
 
+            {/* =========================================
+                🔥 POPUP MODALS 🔥
+            ========================================= */}
+
+            {/* ORDER DETAILS MODAL */}
+            {selectedOrder && (
+                <div className="fixed inset-0 z-[300] bg-black/90 backdrop-blur-sm overflow-y-auto">
+                    <div className="flex min-h-full items-center justify-center p-4 py-12">
+                        <div className="bg-[var(--card)] border border-primary-400/30 w-full max-w-2xl p-8 shadow-2xl animate-in zoom-in-95 duration-200">
+                            <div className="flex justify-between items-center mb-8 border-b border-[var(--border)] pb-4">
+                                <h2 className="text-xl font-serif italic text-primary-400">Détails de la Commande</h2>
+                                <button onClick={() => setSelectedOrder(null)} className="hover:rotate-90 transition-transform">
+                                    <X className="w-6 h-6" />
+                                </button>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-4 mb-6 bg-white/5 p-4 border border-white/10">
+                                <div>
+                                    <p className="text-[8px] uppercase tracking-widest opacity-60 font-bold mb-1">Client</p>
+                                    <p className="text-[10px] font-bold">{selectedOrder.userEmail || 'Client Identifié'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[8px] uppercase tracking-widest opacity-60 font-bold mb-1">Contact</p>
+                                    <p className="text-[10px] font-bold text-primary-400">{selectedOrder.deliveryPhone || 'Non Fourni'}</p>
+                                </div>
+                                <div className="col-span-2 pt-2">
+                                    <p className="text-[8px] uppercase tracking-widest opacity-60 font-bold mb-1">Adresse de Livraison</p>
+                                    <p className="text-[10px] leading-relaxed italic">"{selectedOrder.deliveryAddress || 'En attente'}"</p>
+                                </div>
+                            </div>
+
+                            {/* Order Status Update Controls */}
+                            <div className="flex gap-2 mb-8 border-b border-[var(--border)] pb-6">
+                                {['En attente', 'Expédié', 'Livré'].map(s => (
+                                    <button 
+                                        key={s} 
+                                        onClick={() => updateOrderStatus(selectedOrder.id, s)} 
+                                        className={`flex-1 py-3 text-[9px] uppercase tracking-widest font-bold border transition-all ${selectedOrder.status === s ? 'bg-primary-400 text-black border-primary-400' : 'border-[var(--border)] opacity-60 hover:opacity-100 hover:border-primary-400'}`}
+                                    >
+                                        {s}
+                                    </button>
+                                ))}
+                            </div>
+
+                            <div className="space-y-3 mb-8">
+                                {selectedOrder.items?.map((item, idx) => (
+                                    <div key={idx} className="flex justify-between text-[11px] bg-[var(--background)] p-4 border border-[var(--border)]">
+                                        <span className="font-bold uppercase tracking-widest">{item.title || 'Produit'} <span className="opacity-40">x{item.quantity}</span></span>
+                                        <span className="font-mono text-primary-400 font-bold">${(item.price * item.quantity).toFixed(2)}</span>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="flex justify-between items-center border-t border-[var(--border)] pt-4">
+                                <span className="text-[12px] font-bold uppercase tracking-widest opacity-60">Total</span>
+                                <span className="text-3xl font-mono font-bold text-primary-400">${Number(selectedOrder.totalAmount).toFixed(2)}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* EDIT BLOG MODAL */}
+            {editingPost && (
+                <div className="fixed inset-0 z-[300] bg-black/90 backdrop-blur-sm overflow-y-auto">
+                    <div className="flex min-h-full items-center justify-center p-4 py-12">
+                        <div className="bg-[var(--card)] border border-primary-400/30 w-full max-w-2xl p-8 shadow-2xl animate-in zoom-in-95 duration-200">
+                            <div className="flex justify-between items-center mb-8 border-b border-[var(--border)] pb-4">
+                                <h2 className="text-xl font-serif italic text-primary-400">Modifier l'article</h2>
+                                <button onClick={() => setEditingPost(null)} className="hover:rotate-90 transition-transform">
+                                    <X className="w-6 h-6" />
+                                </button>
+                            </div>
+
+                            <form onSubmit={handleUpdateBlog} className="space-y-6">
+                                <div>
+                                    <label className="block text-[10px] uppercase tracking-widest mb-2 opacity-60 font-bold">Titre</label>
+                                    <input
+                                        type="text"
+                                        value={editingPost.title}
+                                        onChange={(e) => setEditingPost({...editingPost, title: e.target.value})}
+                                        className="w-full bg-[var(--background)] border border-[var(--border)] p-3 focus:border-primary-400 outline-none transition-colors text-[11px] font-bold"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] uppercase tracking-widest mb-2 opacity-60 font-bold">Image URL</label>
+                                    <input
+                                        type="url"
+                                        value={editingPost.imageUrl}
+                                        onChange={(e) => setEditingPost({...editingPost, imageUrl: e.target.value})}
+                                        className="w-full bg-[var(--background)] border border-[var(--border)] p-3 focus:border-primary-400 outline-none transition-colors text-[11px]"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] uppercase tracking-widest mb-2 opacity-60 font-bold">Contenu</label>
+                                    <textarea
+                                        rows={8}
+                                        value={editingPost.content}
+                                        onChange={(e) => setEditingPost({...editingPost, content: e.target.value})}
+                                        className="w-full bg-[var(--background)] border border-[var(--border)] p-3 focus:border-primary-400 outline-none transition-colors text-[11px] leading-relaxed resize-none"
+                                    />
+                                </div>
+                                <div className="flex gap-4 pt-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => setEditingPost(null)}
+                                        className="flex-1 border border-[var(--border)] py-4 text-[10px] uppercase font-bold tracking-[0.2em] hover:bg-white/5 transition-colors"
+                                    >
+                                        Annuler
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={saving}
+                                        className="flex-1 bg-primary-400 text-black py-4 text-[10px] uppercase font-bold tracking-[0.2em] hover:opacity-90 transition-opacity"
+                                    >
+                                        {saving ? 'Sauvegarde...' : 'Sauvegarder'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

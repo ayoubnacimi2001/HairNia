@@ -32,6 +32,11 @@ interface StoreState {
   setTheme: (theme: 'light' | 'dark') => void;
   toggleTheme: () => void;
   
+  // 🔥 1. The Blueprint for the Toast
+  toastMessage: string | null;
+  showToast: (message: string) => void;
+  hideToast: () => void;
+  
   cart: CartItem[];
   addToCart: (item: CartItem) => void;
   removeFromCart: (id: string) => void;
@@ -72,9 +77,15 @@ export const useStore = create<StoreState>()(
       setTheme: (theme) => set({ theme }),
       toggleTheme: () => set((state) => ({ theme: state.theme === 'light' ? 'dark' : 'light' })),
       
+      // 🔥 2. The Engine for the Toast
+      toastMessage: null,
+      showToast: (message) => {
+        set({ toastMessage: message });
+        setTimeout(() => set({ toastMessage: null }), 3000);
+      },
+      hideToast: () => set({ toastMessage: null }),
+
       cart: [],
-      
-      // FIXED: Forced strict Number() conversions to prevent the string-math bug
       addToCart: (item) => set((state) => {
         const existing = state.cart.find((i) => i.id === item.id);
         if (existing) {
@@ -93,7 +104,6 @@ export const useStore = create<StoreState>()(
         cart: state.cart.filter((i) => i.id !== id),
       })),
       
-      // FIXED: Forced strict Number() conversions so the + and - buttons work instantly
       updateQuantity: (id, quantity) => set((state) => ({
         cart: state.cart.map((i) => (i.id === id ? { ...i, quantity: Number(quantity) } : i)),
       })),
@@ -106,8 +116,8 @@ export const useStore = create<StoreState>()(
       siteConfig: defaultConfig,
       setSiteConfig: (config) => set((state) => ({ siteConfig: { ...state.siteConfig, ...config } })),
     }),
-    {
-      name: 'hairnia-storage',
+   {
+      name: 'hairnia-storage-v2', // Change this from 'hairnia-storage' to 'hairnia-storage-v2'
       partialize: (state) => ({ theme: state.theme, cart: state.cart, siteConfig: state.siteConfig }),
     }
   )
