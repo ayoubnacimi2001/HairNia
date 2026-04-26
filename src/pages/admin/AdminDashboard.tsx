@@ -5,12 +5,6 @@ import { doc, getDoc, setDoc, serverTimestamp, collection, query, getDocs, order
 import { Link } from 'react-router-dom';
 import { Trash2 } from 'lucide-react';
 
-/**
- * Ensure a minimal JSX.IntrinsicElements exists for TypeScript environments
- * that do not include @types/react or have non-standard tsconfig settings.
- * This prevents the error:
- * "JSX element implicitly has type 'any' because no interface 'JSX.IntrinsicElements' exists."
- */
 declare global {
     namespace JSX {
         interface IntrinsicElements {
@@ -36,6 +30,13 @@ interface BlogPost {
     createdAt?: any;
 }
 
+interface Subscriber {
+    id: string;
+    email: string;
+    subscribedAt?: any; 
+    createdAt?: any;    
+}
+
 export function AdminDashboard() {
     const { user, siteConfig, setSiteConfig } = useStore();
     const [isAdmin, setIsAdmin] = useState(false);
@@ -46,14 +47,16 @@ export function AdminDashboard() {
     const [previewColor, setPreviewColor] = useState(siteConfig.themePrimaryColor || defaultThemeColor);
 
     const [contactMessages, setContactMessages] = useState<ContactMessage[]>([]);
-
     const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
     const [newBlog, setNewBlog] = useState({ title: '', content: '', imageUrl: '' });
     const [creatingBlog, setCreatingBlog] = useState(false);
+    const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
+    
+    // NEW TABS STATE FOR INBOX HUB
+    const [activeMessageTab, setActiveMessageTab] = useState<'contact' | 'subscribers'>('contact');
 
     const fetchContactMessages = async () => {
         try {
-            // PERF FIX: Added limit() to prevent downloading the entire database and spiking billing
             const q = query(collection(db, 'contactMessages'), orderBy('createdAt', 'desc'), limit(50));
             const snap = await getDocs(q);
             setContactMessages(snap.docs.map(d => ({ id: d.id, ...d.data() } as ContactMessage)));
@@ -64,7 +67,6 @@ export function AdminDashboard() {
 
     const fetchBlogPosts = async () => {
         try {
-            // PERF FIX: Added limit() to prevent downloading the entire database and spiking billing
             const q = query(collection(db, 'blogs'), orderBy('createdAt', 'desc'), limit(50));
             const snap = await getDocs(q);
             setBlogPosts(snap.docs.map(d => ({ id: d.id, ...d.data() } as BlogPost)));
@@ -73,11 +75,21 @@ export function AdminDashboard() {
         }
     };
 
+    const fetchSubscribers = async () => {
+        try {
+            const q = query(collection(db, 'subscribers'), orderBy('subscribedAt', 'desc'), limit(50));
+            const snap = await getDocs(q);
+            setSubscribers(snap.docs.map(d => ({ id: d.id, ...d.data() } as Subscriber)));
+        } catch (err) {
+            console.error("Failed to fetch subscribers:", err);
+        }
+    };
+
     const handleDeleteContactMessage = async (id: string) => {
         if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce message ?')) return;
         try {
             await deleteDoc(doc(db, 'contactMessages', id));
-            fetchContactMessages(); // Refresh the list automatically
+            fetchContactMessages(); 
         } catch (err) {
             console.error(err);
             alert('Failed to delete message.');
@@ -115,6 +127,17 @@ export function AdminDashboard() {
         }
     };
 
+    const handleDeleteSubscriber = async (id: string) => {
+        if (!window.confirm('Are you sure you want to delete this subscriber?')) return;
+        try {
+            await deleteDoc(doc(db, 'subscribers', id));
+            fetchSubscribers();
+        } catch (err) {
+            console.error(err);
+            alert('Failed to delete subscriber.');
+        }
+    };
+
     useEffect(() => {
         if (previewColor) {
             document.documentElement.style.setProperty('--theme-primary', previewColor);
@@ -122,10 +145,8 @@ export function AdminDashboard() {
     }, [previewColor]);
 
     useEffect(() => {
-        // BUG FIX: Capture the original color on mount so the cleanup function doesn't read stale state
         const originalColor = useStore.getState().siteConfig.themePrimaryColor;
         return () => {
-            // Revert on unmount if not saved
             if (originalColor) {
                 document.documentElement.style.setProperty('--theme-primary', originalColor);
             } else {
@@ -166,19 +187,20 @@ export function AdminDashboard() {
             return;
         }
 
-        // Check if user is admin
         const checkAdmin = async () => {
             try {
                 if (user.email === 'ayoubnacimi2001@gmail.com' && user.emailVerified) {
                     setIsAdmin(true);
                     fetchBlogPosts();
                     fetchContactMessages();
+                    fetchSubscribers();
                 } else {
                     const adminDoc = await getDoc(doc(db, 'admins', user.uid));
                     if (adminDoc.exists()) {
                         setIsAdmin(true);
                         fetchBlogPosts();
                         fetchContactMessages();
+                        fetchSubscribers();
                     } else {
                         setIsAdmin(false);
                     }
@@ -224,7 +246,6 @@ export function AdminDashboard() {
                 const ctx = canvas.getContext('2d');
                 ctx?.drawImage(img, 0, 0, width, height);
 
-                // Use PNG for logos to preserve transparency, JPEG for hero images
                 const format = field === 'logoUrl' ? 'image/png' : 'image/jpeg';
                 const quality = field === 'logoUrl' ? 1 : 0.7;
                 const dataUrl = canvas.toDataURL(format, quality);
@@ -268,9 +289,10 @@ export function AdminDashboard() {
         <div className="max-w-4xl mx-auto px-4 py-16">
             <h1 className="text-3xl font-serif italic mb-8">Admin Dashboard</h1>
 
+            {/* Global Settings Section */}
             <div className="bg-[var(--card)] border border-[var(--border)] p-8">
                 <h2 className="text-xl font-bold uppercase tracking-widest text-[11px] mb-6 border-b border-[var(--border)] pb-4">Global Site Settings</h2>
-
+                
                 <form onSubmit={handleSaveConfig} className="space-y-6">
                     <h2 className="text-xl font-bold uppercase tracking-widest text-[11px] mt-8 mb-6 border-b border-[var(--border)] pb-4">Theme Customization</h2>
 
@@ -496,13 +518,6 @@ export function AdminDashboard() {
                         >
                             + Add Category
                         </button>
-                        <button
-                            type="submit"
-                            disabled={saving}
-                            className="px-4 py-3 bg-primary-400 text-black font-bold uppercase tracking-widest text-[10px] hover:opacity-90 disabled:opacity-50 ml-4"
-                        >
-                            {saving ? 'Saving...' : 'Save Categories'}
-                        </button>
                     </div>
 
                     <h2 className="text-xl font-bold uppercase tracking-widest text-[11px] mt-8 mb-6 border-b border-[var(--border)] pb-4">SEO Settings</h2>
@@ -539,54 +554,100 @@ export function AdminDashboard() {
                     <button
                         type="submit"
                         disabled={saving}
-                        className="px-6 py-3 bg-primary-400 text-black font-bold uppercase tracking-widest text-[10px] hover:opacity-90 disabled:opacity-50"
+                        className="px-6 py-3 bg-primary-400 text-black font-bold uppercase tracking-widest text-[10px] hover:opacity-90 disabled:opacity-50 mt-8"
                     >
-                        {saving ? 'Saving...' : 'Save Settings'}
+                        {saving ? 'Saving...' : 'Save All Settings'}
                     </button>
                 </form>
             </div>
 
+            {/* Product Management Section */}
             <div className="mt-8 bg-[var(--card)] border border-[var(--border)] p-8">
                 <h2 className="text-xl font-bold uppercase tracking-widest text-[11px] mb-6 border-b border-[var(--border)] pb-4">Product Management</h2>
-                <p className="text-[10px] uppercase tracking-widest text-[var(--foreground)]/60 mb-6">Manage all your products, inventory, and pricing here.</p>
-
                 <Link to="/admin/products" className="inline-block px-6 py-3 bg-[var(--background)] border border-[var(--border)] text-primary-400 font-bold uppercase tracking-widest text-[10px] hover:border-primary-400">
                     Manage Products
                 </Link>
             </div>
 
+            {/* 🔥 THE NEW INBOX HUB 🔥 */}
             <div className="mt-8 bg-[var(--card)] border border-[var(--border)] p-8">
-                <h2 className="text-xl font-bold uppercase tracking-widest text-[11px] mb-6 border-b border-[var(--border)] pb-4">Contact Messages</h2>
-                <p className="text-[10px] uppercase tracking-widest text-[var(--foreground)]/60 mb-6">Messages sent by users from the Contact page.</p>
-
-                <div className="space-y-4">
-                    {contactMessages.map(msg => (
-                        <div key={msg.id} className="p-4 bg-[var(--background)] border border-[var(--border)] flex flex-col gap-2">
-                            <div className="flex justify-between items-start border-b border-[var(--border)] pb-2 mb-2">
-                                <div>
-                                    <h4 className="font-bold text-[11px] uppercase tracking-widest">{msg.name}</h4>
-                                    <p className="text-[10px] text-[var(--foreground)]/60">{msg.email} {msg.phone ? `| ${msg.phone}` : ''}</p>
-                                </div>
-                                <div className="flex items-center gap-4">
-                                    <span className="text-[9px] uppercase tracking-widest text-[var(--foreground)]/40">
-                                        {msg.createdAt?.toDate ? new Date(msg.createdAt.toDate()).toLocaleString() : 'Just now'}
-                                    </span>
-                                    <button onClick={() => handleDeleteContactMessage(msg.id)} className="p-1 text-[var(--foreground)]/40 hover:text-red-500 transition-colors" title="Supprimer">
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            </div>
-                            <p className="text-[11px] whitespace-pre-wrap">{msg.message}</p>
-                        </div>
-                    ))}
-                    {contactMessages.length === 0 && <p className="text-[10px] uppercase tracking-widest text-[var(--foreground)]/40 text-center py-8">No messages received yet.</p>}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-[var(--border)] pb-4 mb-6 gap-4">
+                    <h2 className="text-xl font-bold uppercase tracking-widest text-[11px]">Inbox Hub</h2>
+                    
+                    {/* The Tabs Toggle */}
+                    <div className="flex bg-[var(--background)] p-1 border border-[var(--border)] rounded-sm">
+                        <button
+                            onClick={() => setActiveMessageTab('contact')}
+                            className={`px-4 py-2 text-[10px] font-bold uppercase tracking-widest transition-colors ${
+                                activeMessageTab === 'contact' ? 'bg-primary-400 text-black' : 'text-[var(--foreground)]/60 hover:text-[var(--foreground)]'
+                            }`}
+                        >
+                            📩 Contact Form
+                        </button>
+                        <button
+                            onClick={() => setActiveMessageTab('subscribers')}
+                            className={`px-4 py-2 text-[10px] font-bold uppercase tracking-widest transition-colors ${
+                                activeMessageTab === 'subscribers' ? 'bg-primary-400 text-black' : 'text-[var(--foreground)]/60 hover:text-[var(--foreground)]'
+                            }`}
+                        >
+                            🎁 VIP Subscribers
+                        </button>
+                    </div>
                 </div>
+
+                {/* Tab Content: Contact Messages */}
+                {activeMessageTab === 'contact' && (
+                    <div className="space-y-4 animate-in fade-in duration-300">
+                        <p className="text-[10px] uppercase tracking-widest text-[var(--foreground)]/60 mb-4">Messages sent by users from the Contact page.</p>
+                        {contactMessages.map(msg => (
+                            <div key={msg.id} className="p-4 bg-[var(--background)] border border-[var(--border)] flex flex-col gap-2">
+                                <div className="flex justify-between items-start border-b border-[var(--border)] pb-2 mb-2">
+                                    <div>
+                                        <h4 className="font-bold text-[11px] uppercase tracking-widest">{msg.name}</h4>
+                                        <p className="text-[10px] text-[var(--foreground)]/60">{msg.email} {msg.phone ? `| ${msg.phone}` : ''}</p>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        <span className="text-[9px] uppercase tracking-widest text-[var(--foreground)]/40">
+                                            {msg.createdAt?.toDate ? new Date(msg.createdAt.toDate()).toLocaleString() : 'Just now'}
+                                        </span>
+                                        <button onClick={() => handleDeleteContactMessage(msg.id)} className="p-1 text-[var(--foreground)]/40 hover:text-red-500 transition-colors" title="Delete">
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </div>
+                                <p className="text-[11px] whitespace-pre-wrap">{msg.message}</p>
+                            </div>
+                        ))}
+                        {contactMessages.length === 0 && <p className="text-[10px] uppercase tracking-widest text-[var(--foreground)]/40 text-center py-8">No messages received yet.</p>}
+                    </div>
+                )}
+
+                {/* Tab Content: Subscribers */}
+                {activeMessageTab === 'subscribers' && (
+                    <div className="space-y-4 animate-in fade-in duration-300">
+                        <p className="text-[10px] uppercase tracking-widest text-[var(--foreground)]/60 mb-4">Users who have joined your email marketing list.</p>
+                        {subscribers.map(sub => (
+                            <div key={sub.id} className="p-4 bg-[var(--background)] border border-[var(--border)] flex justify-between items-center gap-4">
+                                <div>
+                                    <p className="font-mono text-[12px] font-bold text-primary-400">{sub.email}</p>
+                                    <p className="text-[9px] uppercase tracking-widest text-[var(--foreground)]/40 mt-1">
+                                        Subscribed: {sub.subscribedAt?.toDate ? new Date(sub.subscribedAt.toDate()).toLocaleString() : (sub.createdAt?.toDate ? new Date(sub.createdAt.toDate()).toLocaleString() : 'Just now')}
+                                    </p>
+                                </div>
+                                <button onClick={() => handleDeleteSubscriber(sub.id)} className="p-2 text-[var(--foreground)]/40 hover:text-red-500 transition-colors" title="Delete Subscriber">
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            </div>
+                        ))}
+                        {subscribers.length === 0 && <p className="text-[10px] uppercase tracking-widest text-[var(--foreground)]/40 text-center py-8">No subscribers found yet.</p>}
+                    </div>
+                )}
             </div>
 
+            {/* Blog Management Section */}
             <div className="mt-8 bg-[var(--card)] border border-[var(--border)] p-8">
                 <h2 className="text-xl font-bold uppercase tracking-widest text-[11px] mb-6 border-b border-[var(--border)] pb-4">Blog Management</h2>
-
-                {/* Create Form */}
+                
                 <div className="mb-10">
                     <h3 className="font-bold text-[11px] uppercase tracking-widest mb-4">Create New Post</h3>
                     <form onSubmit={handleCreateBlog} className="space-y-4">
@@ -628,7 +689,6 @@ export function AdminDashboard() {
                     </form>
                 </div>
 
-                {/* List existing blogs */}
                 <div>
                     <h3 className="font-bold text-[11px] uppercase tracking-widest mb-4 border-t border-[var(--border)] pt-8">Published Posts</h3>
                     <div className="space-y-4">

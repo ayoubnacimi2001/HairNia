@@ -1,14 +1,20 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, Star } from 'lucide-react';
+import { ArrowRight, Star, CheckCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useState, useEffect } from 'react';
-import { collection, query, getDocs, limit, where } from 'firebase/firestore';
+import { collection, query, getDocs, limit, where, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useStore } from '../store/useStore';
 
 export function HomePage() {
   const { siteConfig, addToCart } = useStore();
   const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
+  
+  // Newsletter State
+  const [email, setEmail] = useState('');
+  const [isSubscribing, setIsSubscribing] = useState(false);
+  const [subscribeSuccess, setSubscribeSuccess] = useState(false);
+  const [subscribeError, setSubscribeError] = useState('');
 
   useEffect(() => {
     const fetchFeatured = async () => {
@@ -41,6 +47,30 @@ export function HomePage() {
     });
     alert('Added to cart!');
   };
+
+  // The Firebase Subscription Engine
+  const handleSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+
+    setIsSubscribing(true);
+    setSubscribeError('');
+
+    try {
+      await addDoc(collection(db, 'subscribers'), {
+        email: email,
+        subscribedAt: serverTimestamp(),
+      });
+      setSubscribeSuccess(true);
+      setEmail('');
+    } catch (err) {
+      console.error(err);
+      setSubscribeError('Connection error. Please try again.');
+    } finally {
+      setIsSubscribing(false);
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-screen">
       {/* Hero Section */}
@@ -170,25 +200,49 @@ export function HomePage() {
         </div>
       </section>
       
-      {/* Newsletter Promo */}
+      {/* Newsletter Promo (Upgraded with Firebase) */}
       <section className="py-24 bg-[var(--card)] border-y border-[var(--border)]">
         <div className="max-w-4xl mx-auto px-4 text-center">
           <h2 className="text-3xl md:text-5xl font-serif italic mb-6">Join the HairNia Community</h2>
           <p className="text-[var(--foreground)]/60 text-sm mb-10 max-w-2xl mx-auto leading-relaxed">
             Get exclusive access to new drops, professional styling tips, and members-only discounts.
           </p>
-          <form className="flex flex-col sm:flex-row gap-0 justify-center max-w-md mx-auto relative" onSubmit={(e) => e.preventDefault()}>
-            <input 
-              type="email" 
-              placeholder="ENTER YOUR EMAIL" 
-              name="email"
-              required
-              className="flex-grow px-4 py-3 bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)] text-[10px] tracking-widest uppercase focus:outline-none focus:border-primary-400 transition-colors placeholder:text-[var(--foreground)]/30"
-            />
-            <button className="px-6 py-3 bg-primary-400 text-black text-[10px] uppercase font-bold tracking-widest hover:opacity-90 transition-opacity whitespace-nowrap">
-              Subscribe
-            </button>
-          </form>
+          
+          {subscribeSuccess ? (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="flex flex-col items-center justify-center p-8 border border-primary-400/30 max-w-md mx-auto bg-[var(--background)] shadow-2xl"
+            >
+              <CheckCircle className="w-12 h-12 text-primary-400 mb-4" strokeWidth={1.5} />
+              <h3 className="text-2xl font-serif italic text-white mb-2">Thank you!</h3>
+              <p className="text-[var(--foreground)]/60 text-[11px] uppercase tracking-widest">
+                Your gift is on the way.
+              </p>
+            </motion.div>
+          ) : (
+            <form className="flex flex-col sm:flex-row gap-0 justify-center max-w-md mx-auto relative" onSubmit={handleSubscribe}>
+              <input 
+                type="email" 
+                placeholder="ENTER YOUR EMAIL" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={isSubscribing}
+                required
+                className="flex-grow px-4 py-3 bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)] text-[10px] tracking-widest uppercase focus:outline-none focus:border-primary-400 transition-colors placeholder:text-[var(--foreground)]/30 disabled:opacity-50"
+              />
+              <button 
+                type="submit"
+                disabled={isSubscribing}
+                className="px-6 py-3 bg-primary-400 text-black text-[10px] uppercase font-bold tracking-widest hover:opacity-90 transition-opacity whitespace-nowrap disabled:opacity-70 disabled:cursor-wait"
+              >
+                {isSubscribing ? 'SENDING...' : 'SUBSCRIBE'}
+              </button>
+            </form>
+          )}
+          {subscribeError && (
+            <p className="text-red-500 text-[10px] mt-4 uppercase tracking-widest">{subscribeError}</p>
+          )}
         </div>
       </section>
     </div>

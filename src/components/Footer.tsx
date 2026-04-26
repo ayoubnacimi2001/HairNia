@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Facebook, Instagram, Twitter, Scissors } from 'lucide-react';
+import { Facebook, Instagram, Twitter } from 'lucide-react';
 import { useStore } from '../store/useStore';
 
 export function Footer() {
