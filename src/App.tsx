@@ -14,6 +14,7 @@ import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { AdminProducts } from './pages/admin/AdminProducts';
 import { Blog } from './pages/Blog';
 import { SingleBlogPost } from './pages/SingleBlogPost';
+import { DynamicPage } from './pages/DynamicPage';
 import { AiWidget } from './components/AiWidget';
 import { ScrollToTop } from './components/ScrollToTop';
 import { db, auth } from './lib/firebase';
@@ -92,6 +93,7 @@ export default function App() {
             <Route path="/about" element={<AboutPage />} />
             <Route path="/blog" element={<Blog />} />
             <Route path="/blog/:id" element={<SingleBlogPost />} />
+            <Route path="/page/:slug" element={<DynamicPage />} />
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/products" element={<AdminProducts />} />

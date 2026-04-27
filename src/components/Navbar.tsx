@@ -1,13 +1,26 @@
 import { Link } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { ShoppingCart, User, Moon, Sun, Menu, X, Scissors } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 export function Navbar() {
   const { theme, toggleTheme, cart, user, siteConfig } = useStore();
   const [isOpen, setIsOpen] = useState(false);
+  const [dynamicPages, setDynamicPages] = useState<{name: string, path: string}[]>([]);
 
   const cartItemsCount = cart.reduce((acc, item) => acc + item.quantity, 0);
+
+  useEffect(() => {
+    const q = query(collection(db, 'pages'), where('showInMenu', '==', true));
+    
+    const unsubscribe = onSnapshot(q, (snap) => {
+      setDynamicPages(snap.docs.map(doc => ({ name: doc.data().title, path: `/page/${doc.data().slug}` })));
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const navLinks = [
     { name: 'Home', path: '/' },
@@ -16,6 +29,7 @@ export function Navbar() {
     { name: 'Blog', path: '/blog' },
     { name: 'About', path: '/about' },
     { name: 'Contact', path: '/contact' },
+    ...dynamicPages
   ];
 
   return (

@@ -29,6 +29,10 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+    match /pages/{pageId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
 
     // 3. User Submissions (Contact & Newsletter)
     match /contactMessages/{messageId} {

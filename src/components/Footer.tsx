@@ -25,15 +25,15 @@ export function Footer() {
             </p>
             <div className="flex space-x-4">
               {/* 🔥 Dynamic Social Links */}
-              <a href={siteConfig.socialFacebook || "#"} target="_blank" rel="noreferrer" className="text-[var(--foreground)]/40 hover:text-primary-400 transition-colors">
-                <Facebook className="h-4 w-4" />
-              </a>
-              <a href={siteConfig.socialInstagram || "#"} target="_blank" rel="noreferrer" className="text-[var(--foreground)]/40 hover:text-primary-400 transition-colors">
-                <Instagram className="h-4 w-4" />
-              </a>
-              <a href={siteConfig.socialTwitter || "#"} target="_blank" rel="noreferrer" className="text-[var(--foreground)]/40 hover:text-primary-400 transition-colors">
-                <Twitter className="h-4 w-4" />
-              </a>
+              {siteConfig.socialFacebook && (
+                <a href={siteConfig.socialFacebook} target="_blank" rel="noreferrer" className="text-[var(--foreground)]/40 hover:text-primary-400 transition-colors"><Facebook className="h-4 w-4" /></a>
+              )}
+              {siteConfig.socialInstagram && (
+                <a href={siteConfig.socialInstagram} target="_blank" rel="noreferrer" className="text-[var(--foreground)]/40 hover:text-primary-400 transition-colors"><Instagram className="h-4 w-4" /></a>
+              )}
+              {siteConfig.socialTwitter && (
+                <a href={siteConfig.socialTwitter} target="_blank" rel="noreferrer" className="text-[var(--foreground)]/40 hover:text-primary-400 transition-colors"><Twitter className="h-4 w-4" /></a>
+              )}
             </div>
           </div>
 

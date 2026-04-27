@@ -3,7 +3,7 @@ import { useStore } from '../../store/useStore';
 import { db } from '../../lib/firebase';
 import { doc, getDoc, setDoc, serverTimestamp, collection, query, getDocs, orderBy, limit, deleteDoc, addDoc, updateDoc } from 'firebase/firestore';
 import { Link } from 'react-router-dom';
-import { Trash2, Settings, ShoppingBag, FileText, Inbox, ArrowLeft, Receipt, ArrowRight, Edit2, X } from 'lucide-react';
+import { Trash2, Settings, ShoppingBag, FileText, Inbox, ArrowLeft, Receipt, ArrowRight, Edit2, X, Share2, LayoutTemplate } from 'lucide-react';
 
 declare global {
     namespace JSX {
@@ -56,6 +56,15 @@ interface Order {
     items?: OrderItem[];
 }
 
+interface Page {
+    id: string;
+    title: string;
+    slug: string;
+    content: string;
+    showInMenu: boolean;
+    createdAt?: any;
+}
+
 export function AdminDashboard() {
     const { user, siteConfig, setSiteConfig, showToast } = useStore();
     const [isAdmin, setIsAdmin] = useState(false);
@@ -76,7 +85,12 @@ export function AdminDashboard() {
     const [loadingOrders, setLoadingOrders] = useState(false);
     const [editingPost, setEditingPost] = useState<BlogPost | null>(null);
 
-    const [activeTab, setActiveTab] = useState<'menu' | 'settings' | 'products' | 'blogs' | 'inbox' | 'orders'>('menu');
+    const [pages, setPages] = useState<Page[]>([]);
+    const [newPage, setNewPage] = useState({ title: '', slug: '', content: '', showInMenu: false });
+    const [creatingPage, setCreatingPage] = useState(false);
+    const [editingPageObj, setEditingPageObj] = useState<Page | null>(null);
+
+    const [activeTab, setActiveTab] = useState<'menu' | 'settings' | 'products' | 'blogs' | 'inbox' | 'orders' | 'advanced' | 'pages'>('menu');
     const [activeMessageTab, setActiveMessageTab] = useState<'contact' | 'subscribers'>('contact');
 
     const [isScrolled, setIsScrolled] = useState(false);
@@ -116,6 +130,16 @@ export function AdminDashboard() {
             setSubscribers(snap.docs.map(d => ({ id: d.id, ...d.data() } as Subscriber)));
         } catch (err) {
             console.error("Failed to fetch subscribers:", err);
+        }
+    };
+
+    const fetchPages = async () => {
+        try {
+            const q = query(collection(db, 'pages'), orderBy('createdAt', 'desc'));
+            const snap = await getDocs(q);
+            setPages(snap.docs.map(d => ({ id: d.id, ...d.data() } as Page)));
+        } catch (err) {
+            console.error("Failed to fetch pages:", err);
         }
     };
 
@@ -204,6 +228,45 @@ export function AdminDashboard() {
         }
     };
 
+    const handleCreatePage = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newPage.title || !newPage.content) return;
+        setCreatingPage(true);
+        // Auto-generate slug if left empty
+        const slug = newPage.slug || newPage.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+        try {
+            await addDoc(collection(db, 'pages'), {
+                ...newPage,
+                slug,
+                createdAt: serverTimestamp()
+            });
+            setNewPage({ title: '', slug: '', content: '', showInMenu: false });
+            fetchPages();
+            if(showToast) showToast('Page créée avec succès!');
+        } catch (err) {
+            console.error(err);
+            alert('Failed to create page.');
+        } finally {
+            setCreatingPage(false);
+        }
+    };
+
+    const handleUpdatePage = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingPageObj) return;
+        setSaving(true);
+        try {
+            await updateDoc(doc(db, 'pages', editingPageObj.id), { ...editingPageObj, updatedAt: serverTimestamp() });
+            setEditingPageObj(null);
+            fetchPages();
+            if(showToast) showToast('Page mise à jour!');
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const updateOrderStatus = async (id: string, newStatus: string) => {
         try {
             await updateDoc(doc(db, 'orders', id), { status: newStatus });
@@ -232,6 +295,14 @@ export function AdminDashboard() {
             console.error(err);
             alert('Failed to delete order.');
         }
+    };
+
+    const handleDeletePage = async (id: string) => {
+        if (!window.confirm('Are you sure you want to delete this page?')) return;
+        try {
+            await deleteDoc(doc(db, 'pages', id));
+            fetchPages();
+        } catch (err) { console.error(err); }
     };
 
     const handleDeleteSubscriber = async (id: string) => {
@@ -302,6 +373,7 @@ export function AdminDashboard() {
                     fetchBlogPosts();
                     fetchContactMessages();
                     fetchSubscribers();
+                    fetchPages();
                 } else {
                     const adminDoc = await getDoc(doc(db, 'admins', user.uid));
                     if (adminDoc.exists()) {
@@ -309,6 +381,7 @@ export function AdminDashboard() {
                         fetchBlogPosts();
                         fetchContactMessages();
                         fetchSubscribers();
+                        fetchPages();
                     } else {
                         setIsAdmin(false);
                     }
@@ -465,7 +538,23 @@ export function AdminDashboard() {
                         </div>
                     </button>
 
-                    <button onClick={() => { setActiveTab('inbox'); window.scrollTo(0, 0); }} className="sm:col-span-2 p-8 bg-[var(--card)] border border-[var(--border)] hover:border-primary-400 transition-all flex flex-col items-center justify-center gap-4 text-center group">
+                    <button onClick={() => { setActiveTab('advanced'); window.scrollTo(0, 0); }} className="p-8 bg-[var(--card)] border border-[var(--border)] hover:border-primary-400 transition-all flex flex-col items-center justify-center gap-4 text-center group">
+                        <Share2 className="w-10 h-10 text-[var(--foreground)]/40 group-hover:text-primary-400 transition-colors" />
+                        <div>
+                            <h2 className="font-bold uppercase tracking-widest text-[13px] mb-2 text-[var(--foreground)]"> Advanced Settings</h2>
+                            <p className="text-[10px] text-[var(--foreground)]/60 uppercase tracking-widest">Social Media Links</p>
+                        </div>
+                    </button>
+
+                    <button onClick={() => { setActiveTab('pages'); fetchPages(); window.scrollTo(0, 0); }} className="p-8 bg-[var(--card)] border border-[var(--border)] hover:border-primary-400 transition-all flex flex-col items-center justify-center gap-4 text-center group">
+                        <LayoutTemplate className="w-10 h-10 text-[var(--foreground)]/40 group-hover:text-primary-400 transition-colors" />
+                        <div>
+                            <h2 className="font-bold uppercase tracking-widest text-[13px] mb-2 text-[var(--foreground)]"> Page Builder</h2>
+                            <p className="text-[10px] text-[var(--foreground)]/60 uppercase tracking-widest">Custom Pages & Navigation</p>
+                        </div>
+                    </button>
+
+                    <button onClick={() => { setActiveTab('inbox'); window.scrollTo(0, 0); }} className="sm:col-span-2 mt-4 p-8 bg-[var(--card)] border border-[var(--border)] hover:border-primary-400 transition-all flex flex-col items-center justify-center gap-4 text-center group">
                         <Inbox className="w-10 h-10 text-[var(--foreground)]/40 group-hover:text-primary-400 transition-colors" />
                         <div>
                             <h2 className="font-bold uppercase tracking-widest text-[13px] mb-2 text-[var(--foreground)]"> Centre de Réception</h2>
@@ -749,6 +838,105 @@ export function AdminDashboard() {
             )}
 
             {/* =========================================
+                NEW: ADVANCED SETTINGS VIEW
+            ========================================= */}
+            {activeTab === 'advanced' && (
+                <div className="animate-in fade-in duration-300 relative">
+                    <BackButton />
+                    <div className="bg-[var(--card)] border border-[var(--border)] p-8">
+                        <h2 className="text-xl font-bold uppercase tracking-widest text-[11px] mb-6 border-b border-[var(--border)] pb-4">Advanced Settings & Integrations</h2>
+                        
+                        <form onSubmit={handleSaveConfig} className="space-y-6">
+                            <h3 className="font-bold text-[11px] uppercase tracking-widest mb-4">Social Media Links</h3>
+                            <p className="text-[10px] text-[var(--foreground)]/60 uppercase tracking-widest mb-6">Leave blank to hide the icon from the website footer.</p>
+
+                            <div>
+                                <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Facebook URL</label>
+                                <input type="url" value={configForm.socialFacebook || ''} onChange={(e) => setConfigForm({ ...configForm, socialFacebook: e.target.value })} placeholder="https://facebook.com/..." className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px]" />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Instagram URL</label>
+                                <input type="url" value={configForm.socialInstagram || ''} onChange={(e) => setConfigForm({ ...configForm, socialInstagram: e.target.value })} placeholder="https://instagram.com/..." className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px]" />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Twitter / X URL</label>
+                                <input type="url" value={configForm.socialTwitter || ''} onChange={(e) => setConfigForm({ ...configForm, socialTwitter: e.target.value })} placeholder="https://twitter.com/..." className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px]" />
+                            </div>
+
+                            <button type="submit" disabled={saving} className="px-6 py-3 bg-primary-400 text-black font-bold uppercase tracking-widest text-[10px] mt-8 w-full hover:opacity-90 transition-opacity">
+                                {saving ? 'Saving...' : 'Save Advanced Settings'}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* =========================================
+                NEW: PAGE BUILDER VIEW
+            ========================================= */}
+            {activeTab === 'pages' && (
+                <div className="animate-in fade-in duration-300 relative">
+                    <BackButton />
+                    <div className="bg-[var(--card)] border border-[var(--border)] p-8">
+                        <h2 className="text-xl font-bold uppercase tracking-widest text-[11px] mb-6 border-b border-[var(--border)] pb-4">Dynamic Page Builder</h2>
+                        
+                        <div className="mb-10">
+                            <h3 className="font-bold text-[11px] uppercase tracking-widest mb-4">Create New Page</h3>
+                            <form onSubmit={handleCreatePage} className="space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Page Title</label>
+                                        <input type="text" value={newPage.title} onChange={e => setNewPage({ ...newPage, title: e.target.value })} className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px]" required />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">URL Slug (Optional)</label>
+                                        <input type="text" value={newPage.slug} onChange={e => setNewPage({ ...newPage, slug: e.target.value })} placeholder="auto-generated-if-blank" className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px]" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Page Content (HTML supported)</label>
+                                    <textarea value={newPage.content} onChange={e => setNewPage({ ...newPage, content: e.target.value })} className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px] h-32 resize-none" required />
+                                </div>
+                                <div className="flex items-center gap-2 mb-4">
+                                    <input type="checkbox" id="showInMenu" checked={newPage.showInMenu} onChange={e => setNewPage({ ...newPage, showInMenu: e.target.checked })} className="accent-primary-400" />
+                                    <label htmlFor="showInMenu" className="text-[10px] uppercase tracking-widest font-bold cursor-pointer">Show in Main Navigation Menu</label>
+                                </div>
+                                <button type="submit" disabled={creatingPage} className="px-6 py-3 bg-primary-400 text-black font-bold uppercase tracking-widest text-[10px] hover:opacity-90 disabled:opacity-50">
+                                    {creatingPage ? 'Creating...' : 'Publish Page'}
+                                </button>
+                            </form>
+                        </div>
+
+                        <div>
+                            <h3 className="font-bold text-[11px] uppercase tracking-widest mb-4 border-t border-[var(--border)] pt-8">Custom Pages</h3>
+                            <div className="space-y-4">
+                                {pages.map(p => (
+                                    <div key={p.id} className="p-4 bg-[var(--background)] border border-[var(--border)] flex justify-between items-center gap-4">
+                                        <div>
+                                            <h4 className="font-bold text-[11px] uppercase tracking-widest">{p.title}</h4>
+                                            <p className="text-[10px] text-[var(--foreground)]/60 mt-1 font-mono">/page/{p.slug}</p>
+                                            <div className="mt-2 flex gap-2">
+                                                {p.showInMenu && <span className="px-2 py-0.5 bg-primary-400/10 text-primary-400 text-[8px] uppercase tracking-widest border border-primary-400/20 font-bold">In Menu</span>}
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-col gap-2 flex-shrink-0">
+                                            <button onClick={() => setEditingPageObj(p)} className="p-2 text-[var(--foreground)]/40 hover:text-primary-400 transition-colors" title="Edit Page">
+                                                <Edit2 className="w-4 h-4" />
+                                            </button>
+                                            <button onClick={() => handleDeletePage(p.id)} className="p-2 text-[var(--foreground)]/40 hover:text-red-500 transition-colors" title="Delete Page">
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                                {pages.length === 0 && <p className="text-[10px] uppercase tracking-widest text-[var(--foreground)]/40 py-4">No custom pages created yet.</p>}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* =========================================
                 5. CENTRE DE RÉCEPTION (INBOX) VIEW
             ========================================= */}
             {activeTab === 'inbox' && (
@@ -936,6 +1124,49 @@ export function AdminDashboard() {
                                         disabled={saving}
                                         className="flex-1 bg-primary-400 text-black py-4 text-[10px] uppercase font-bold tracking-[0.2em] hover:opacity-90 transition-opacity"
                                     >
+                                        {saving ? 'Sauvegarde...' : 'Sauvegarder'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* EDIT PAGE MODAL */}
+            {editingPageObj && (
+                <div className="fixed inset-0 z-[300] bg-black/90 backdrop-blur-sm overflow-y-auto">
+                    <div className="flex min-h-full items-center justify-center p-4 py-12">
+                        <div className="bg-[var(--card)] border border-primary-400/30 w-full max-w-2xl p-8 shadow-2xl animate-in zoom-in-95 duration-200">
+                            <div className="flex justify-between items-center mb-8 border-b border-[var(--border)] pb-4">
+                                <h2 className="text-xl font-serif italic text-primary-400">Modifier la Page</h2>
+                                <button onClick={() => setEditingPageObj(null)} className="hover:rotate-90 transition-transform">
+                                    <X className="w-6 h-6" />
+                                </button>
+                            </div>
+
+                            <form onSubmit={handleUpdatePage} className="space-y-6">
+                                <div>
+                                    <label className="block text-[10px] uppercase tracking-widest mb-2 opacity-60 font-bold">Titre</label>
+                                    <input type="text" value={editingPageObj.title} onChange={(e) => setEditingPageObj({...editingPageObj, title: e.target.value})} className="w-full bg-[var(--background)] border border-[var(--border)] p-3 focus:border-primary-400 outline-none transition-colors text-[11px] font-bold" />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] uppercase tracking-widest mb-2 opacity-60 font-bold">URL Slug</label>
+                                    <input type="text" value={editingPageObj.slug} onChange={(e) => setEditingPageObj({...editingPageObj, slug: e.target.value})} className="w-full bg-[var(--background)] border border-[var(--border)] p-3 focus:border-primary-400 outline-none transition-colors text-[11px]" />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] uppercase tracking-widest mb-2 opacity-60 font-bold">Contenu (HTML)</label>
+                                    <textarea rows={8} value={editingPageObj.content} onChange={(e) => setEditingPageObj({...editingPageObj, content: e.target.value})} className="w-full bg-[var(--background)] border border-[var(--border)] p-3 focus:border-primary-400 outline-none transition-colors text-[11px] leading-relaxed resize-none" />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <input type="checkbox" id="editShowInMenu" checked={editingPageObj.showInMenu} onChange={e => setEditingPageObj({ ...editingPageObj, showInMenu: e.target.checked })} className="accent-primary-400" />
+                                    <label htmlFor="editShowInMenu" className="text-[10px] uppercase tracking-widest font-bold cursor-pointer">Show in Main Navigation Menu</label>
+                                </div>
+                                <div className="flex gap-4 pt-4">
+                                    <button type="button" onClick={() => setEditingPageObj(null)} className="flex-1 border border-[var(--border)] py-4 text-[10px] uppercase font-bold tracking-[0.2em] hover:bg-white/5 transition-colors">
+                                        Annuler
+                                    </button>
+                                    <button type="submit" disabled={saving} className="flex-1 bg-primary-400 text-black py-4 text-[10px] uppercase font-bold tracking-[0.2em] hover:opacity-90 transition-opacity">
                                         {saving ? 'Sauvegarde...' : 'Sauvegarder'}
                                     </button>
                                 </div>
