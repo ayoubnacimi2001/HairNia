@@ -56,6 +56,14 @@ interface Order {
     items?: OrderItem[];
 }
 
+interface FormField {
+    label: string;
+    name: string;
+    type: string;
+    required: boolean;
+    options?: string[];
+}
+
 interface Page {
     id: string;
     title: string;
@@ -63,6 +71,7 @@ interface Page {
     content: string;
     showInMenu: boolean;
     createdAt?: any;
+    formSchema?: FormField[];
 }
 
 export function AdminDashboard() {
@@ -86,7 +95,9 @@ export function AdminDashboard() {
     const [editingPost, setEditingPost] = useState<BlogPost | null>(null);
 
     const [pages, setPages] = useState<Page[]>([]);
-    const [newPage, setNewPage] = useState({ title: '', slug: '', content: '', showInMenu: false });
+    const [newPage, setNewPage] = useState<{title: string, slug: string, content: string, showInMenu: boolean, formSchema: FormField[]}>({ 
+        title: '', slug: '', content: '', showInMenu: false, formSchema: [] 
+    });
     const [creatingPage, setCreatingPage] = useState(false);
     const [editingPageObj, setEditingPageObj] = useState<Page | null>(null);
 
@@ -240,7 +251,7 @@ export function AdminDashboard() {
                 slug,
                 createdAt: serverTimestamp()
             });
-            setNewPage({ title: '', slug: '', content: '', showInMenu: false });
+            setNewPage({ title: '', slug: '', content: '', showInMenu: false, formSchema: [] });
             fetchPages();
             if(showToast) showToast('Page créée avec succès!');
         } catch (err) {
@@ -901,6 +912,74 @@ export function AdminDashboard() {
                                     <input type="checkbox" id="showInMenu" checked={newPage.showInMenu} onChange={e => setNewPage({ ...newPage, showInMenu: e.target.checked })} className="accent-primary-400" />
                                     <label htmlFor="showInMenu" className="text-[10px] uppercase tracking-widest font-bold cursor-pointer">Show in Main Navigation Menu</label>
                                 </div>
+
+                                {/* ================== FORM BUILDER (CREATE) ================== */}
+                                <div className="mt-8 border-t border-[var(--border)] pt-8">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <div>
+                                            <h4 className="font-bold text-[11px] uppercase tracking-widest">Data Connect Form (Optional)</h4>
+                                            <p className="text-[9px] uppercase tracking-widest opacity-60 mt-1">Add inputs to allow users to submit data directly on this page.</p>
+                                        </div>
+                                        <button type="button" onClick={() => setNewPage({...newPage, formSchema: [...(newPage.formSchema || []), {label: '', name: '', type: 'text', required: false}]})} className="px-4 py-2 bg-[var(--background)] border border-[var(--border)] text-primary-400 text-[9px] uppercase tracking-widest font-bold hover:border-primary-400 transition-colors">+ Add Field</button>
+                                    </div>
+                                    <div className="space-y-4">
+                                        {newPage.formSchema?.map((field, idx) => (
+                                            <div key={idx} className="p-4 bg-[var(--background)] border border-[var(--border)] flex flex-wrap gap-4 items-start">
+                                                <div className="flex-1 min-w-[150px]">
+                                                    <label className="block text-[9px] uppercase tracking-widest opacity-60 mb-1">Field Label</label>
+                                                    <input type="text" value={field.label} onChange={(e) => {
+                                                        const newSchema = [...(newPage.formSchema || [])];
+                                                        newSchema[idx].label = e.target.value;
+                                                        newSchema[idx].name = e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '_');
+                                                        setNewPage({...newPage, formSchema: newSchema});
+                                                    }} className="w-full bg-[var(--card)] border border-[var(--border)] p-2 text-[10px] focus:border-primary-400 outline-none" placeholder="e.g. Your Name" required />
+                                                </div>
+                                                <div className="flex-1 min-w-[120px]">
+                                                    <label className="block text-[9px] uppercase tracking-widest opacity-60 mb-1">Field Type</label>
+                                                    <select value={field.type} onChange={(e) => {
+                                                        const newSchema = [...(newPage.formSchema || [])];
+                                                        newSchema[idx].type = e.target.value;
+                                                        setNewPage({...newPage, formSchema: newSchema});
+                                                    }} className="w-full bg-[var(--card)] border border-[var(--border)] p-2 text-[10px] focus:border-primary-400 outline-none">
+                                                        <option value="text">Text (Short)</option>
+                                                        <option value="email">Email</option>
+                                                        <option value="number">Number</option>
+                                                        <option value="date">Date</option>
+                                                        <option value="textarea">Long Text (Area)</option>
+                                                        <option value="checkbox">Checkbox</option>
+                                                        <option value="select">Dropdown (Select)</option>
+                                                    </select>
+                                                </div>
+                                                {field.type === 'select' && (
+                                                    <div className="flex-1 min-w-[200px]">
+                                                        <label className="block text-[9px] uppercase tracking-widest opacity-60 mb-1">Options (comma separated)</label>
+                                                        <input type="text" value={field.options?.join(', ') || ''} onChange={(e) => {
+                                                            const newSchema = [...(newPage.formSchema || [])];
+                                                            newSchema[idx].options = e.target.value.split(',').map(s => s.trim());
+                                                            setNewPage({...newPage, formSchema: newSchema});
+                                                        }} className="w-full bg-[var(--card)] border border-[var(--border)] p-2 text-[10px] focus:border-primary-400 outline-none" placeholder="Opt 1, Opt 2" required />
+                                                    </div>
+                                                )}
+                                                <div className="flex items-center gap-2 mt-6">
+                                                    <input type="checkbox" checked={field.required} onChange={(e) => {
+                                                        const newSchema = [...(newPage.formSchema || [])];
+                                                        newSchema[idx].required = e.target.checked;
+                                                        setNewPage({...newPage, formSchema: newSchema});
+                                                    }} className="accent-primary-400" />
+                                                    <span className="text-[9px] uppercase tracking-widest">Required</span>
+                                                </div>
+                                                <button type="button" onClick={() => {
+                                                    const newSchema = newPage.formSchema?.filter((_, i) => i !== idx);
+                                                    setNewPage({...newPage, formSchema: newSchema});
+                                                }} className="mt-5 p-2 text-[var(--foreground)]/40 hover:text-red-500 transition-colors">
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                        {newPage.formSchema?.length === 0 && <p className="text-[10px] uppercase tracking-widest text-[var(--foreground)]/40 text-center py-4 italic">No dynamic form attached to this page.</p>}
+                                    </div>
+                                </div>
+
                                 <button type="submit" disabled={creatingPage} className="px-6 py-3 bg-primary-400 text-black font-bold uppercase tracking-widest text-[10px] hover:opacity-90 disabled:opacity-50">
                                     {creatingPage ? 'Creating...' : 'Publish Page'}
                                 </button>
@@ -1162,6 +1241,70 @@ export function AdminDashboard() {
                                     <input type="checkbox" id="editShowInMenu" checked={editingPageObj.showInMenu} onChange={e => setEditingPageObj({ ...editingPageObj, showInMenu: e.target.checked })} className="accent-primary-400" />
                                     <label htmlFor="editShowInMenu" className="text-[10px] uppercase tracking-widest font-bold cursor-pointer">Show in Main Navigation Menu</label>
                                 </div>
+
+                                {/* ================== FORM BUILDER (EDIT) ================== */}
+                                <div className="mt-8 border-t border-[var(--border)] pt-8">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h4 className="font-bold text-[11px] uppercase tracking-widest">Data Connect Form</h4>
+                                        <button type="button" onClick={() => setEditingPageObj({...editingPageObj, formSchema: [...(editingPageObj.formSchema || []), {label: '', name: '', type: 'text', required: false}]})} className="px-4 py-2 bg-[var(--background)] border border-[var(--border)] text-primary-400 text-[9px] uppercase tracking-widest font-bold hover:border-primary-400 transition-colors">+ Add Field</button>
+                                    </div>
+                                    <div className="space-y-4">
+                                        {editingPageObj.formSchema?.map((field, idx) => (
+                                            <div key={idx} className="p-4 bg-[var(--background)] border border-[var(--border)] flex flex-wrap gap-4 items-start">
+                                                <div className="flex-1 min-w-[150px]">
+                                                    <label className="block text-[9px] uppercase tracking-widest opacity-60 mb-1">Field Label</label>
+                                                    <input type="text" value={field.label} onChange={(e) => {
+                                                        const newSchema = [...(editingPageObj.formSchema || [])];
+                                                        newSchema[idx].label = e.target.value;
+                                                        newSchema[idx].name = e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '_');
+                                                        setEditingPageObj({...editingPageObj, formSchema: newSchema});
+                                                    }} className="w-full bg-[var(--card)] border border-[var(--border)] p-2 text-[10px] focus:border-primary-400 outline-none" required />
+                                                </div>
+                                                <div className="flex-1 min-w-[120px]">
+                                                    <label className="block text-[9px] uppercase tracking-widest opacity-60 mb-1">Field Type</label>
+                                                    <select value={field.type} onChange={(e) => {
+                                                        const newSchema = [...(editingPageObj.formSchema || [])];
+                                                        newSchema[idx].type = e.target.value;
+                                                        setEditingPageObj({...editingPageObj, formSchema: newSchema});
+                                                    }} className="w-full bg-[var(--card)] border border-[var(--border)] p-2 text-[10px] focus:border-primary-400 outline-none">
+                                                        <option value="text">Text (Short)</option>
+                                                        <option value="email">Email</option>
+                                                        <option value="number">Number</option>
+                                                        <option value="date">Date</option>
+                                                        <option value="textarea">Long Text (Area)</option>
+                                                        <option value="checkbox">Checkbox</option>
+                                                        <option value="select">Dropdown (Select)</option>
+                                                    </select>
+                                                </div>
+                                                {field.type === 'select' && (
+                                                    <div className="flex-1 min-w-[200px]">
+                                                        <label className="block text-[9px] uppercase tracking-widest opacity-60 mb-1">Options</label>
+                                                        <input type="text" value={field.options?.join(', ') || ''} onChange={(e) => {
+                                                            const newSchema = [...(editingPageObj.formSchema || [])];
+                                                            newSchema[idx].options = e.target.value.split(',').map(s => s.trim());
+                                                            setEditingPageObj({...editingPageObj, formSchema: newSchema});
+                                                        }} className="w-full bg-[var(--card)] border border-[var(--border)] p-2 text-[10px] focus:border-primary-400 outline-none" required />
+                                                    </div>
+                                                )}
+                                                <div className="flex items-center gap-2 mt-6">
+                                                    <input type="checkbox" checked={field.required} onChange={(e) => {
+                                                        const newSchema = [...(editingPageObj.formSchema || [])];
+                                                        newSchema[idx].required = e.target.checked;
+                                                        setEditingPageObj({...editingPageObj, formSchema: newSchema});
+                                                    }} className="accent-primary-400" />
+                                                    <span className="text-[9px] uppercase tracking-widest">Req.</span>
+                                                </div>
+                                                <button type="button" onClick={() => {
+                                                    const newSchema = editingPageObj.formSchema?.filter((_, i) => i !== idx);
+                                                    setEditingPageObj({...editingPageObj, formSchema: newSchema});
+                                                }} className="mt-5 p-2 text-[var(--foreground)]/40 hover:text-red-500 transition-colors">
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
                                 <div className="flex gap-4 pt-4">
                                     <button type="button" onClick={() => setEditingPageObj(null)} className="flex-1 border border-[var(--border)] py-4 text-[10px] uppercase font-bold tracking-[0.2em] hover:bg-white/5 transition-colors">
                                         Annuler
