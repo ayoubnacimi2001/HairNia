@@ -28,7 +28,10 @@ export function Navbar() {
               {siteConfig.logoUrl ? (
                 <img src={siteConfig.logoUrl} alt={siteConfig.siteName} className="h-8 object-contain" />
               ) : (
-                <span className="font-serif italic font-black text-2xl tracking-tighter text-primary-400">{siteConfig.siteName}</span>
+                // 🔥 Anti-translation shield added specifically to the site name text
+                <span translate="no" className="notranslate font-serif italic font-black text-2xl tracking-tighter text-primary-400">
+                    {siteConfig.siteName}
+                </span>
               )}
             </Link>
           </div>

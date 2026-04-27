@@ -7,7 +7,7 @@ import { db } from '../lib/firebase';
 import { useStore } from '../store/useStore';
 
 export function HomePage() {
-  const { siteConfig, addToCart } = useStore();
+  const { siteConfig, addToCart, showToast } = useStore();
   const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
   
   // Newsletter State
@@ -45,7 +45,8 @@ export function HomePage() {
       imageUrl: product.imageUrl,
       quantity: 1
     });
-    alert('Added to cart!');
+    // 🔥 Replaced alert with your custom toast
+    showToast('Ajouté au panier!');
   };
 
   // The Firebase Subscription Engine
@@ -65,7 +66,7 @@ export function HomePage() {
       setEmail('');
     } catch (err) {
       console.error(err);
-      setSubscribeError('Connection error. Please try again.');
+      setSubscribeError('Erreur de connexion. Veuillez réessayer.');
     } finally {
       setIsSubscribing(false);
     }
@@ -106,13 +107,13 @@ export function HomePage() {
               to="/shop" 
               className="bg-primary-400 text-black px-7 py-3.5 text-[11px] font-bold uppercase tracking-[1px] text-center hover:opacity-90 transition"
             >
-              Explore Shop
+              Explorer la Boutique
             </Link>
             <Link 
               to="/shop?sort=newest" 
               className="bg-transparent border border-white/20 text-white px-7 py-3.5 text-[11px] font-bold uppercase tracking-[1px] text-center hover:bg-white/5 transition"
             >
-              New Arrivals
+              Nouveautés
             </Link>
           </motion.div>
         </div>
@@ -134,7 +135,7 @@ export function HomePage() {
       <section className="min-h-[240px] bg-[var(--card)] border-t border-[var(--border)] grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-[1px]">
         {siteConfig.categories?.slice(0, 4).map((cat, i) => (
           <Link key={i} to={`/shop?category=${cat.id}`} className="p-8 flex flex-col justify-end bg-[var(--background)] hover:bg-[var(--card)] transition-colors group relative cursor-pointer min-h-[240px]">
-            <span className="text-[10px] uppercase text-[var(--foreground)]/40 mb-1 tracking-widest">Category</span>
+            <span className="text-[10px] uppercase text-[var(--foreground)]/40 mb-1 tracking-widest">Catégorie</span>
             <h3 className="font-serif text-xl mb-2 text-[var(--foreground)]">{cat.name}</h3>
             <div className="absolute top-8 right-8 opacity-0 group-hover:opacity-100 transition-opacity">
               <ArrowRight className="h-5 w-5 text-primary-400" />
@@ -148,11 +149,11 @@ export function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-end mb-12">
             <div>
-              <h2 className="text-3xl font-serif italic mb-2">Our Collection</h2>
+              <h2 className="text-3xl font-serif italic mb-2">Notre Collection</h2>
               <div className="w-10 h-0.5 bg-primary-400" />
             </div>
             <Link to="/shop" className="hidden sm:flex text-[10px] uppercase tracking-widest text-[var(--foreground)]/60 hover:text-primary-400 items-center gap-2 transition-colors">
-              View All <ArrowRight className="h-3 w-3" />
+              Voir Tout <ArrowRight className="h-3 w-3" />
             </Link>
           </div>
 
@@ -166,7 +167,7 @@ export function HomePage() {
                     className="w-full h-full object-cover mix-blend-luminosity opacity-80 group-hover:opacity-100 transition-opacity duration-500"
                   />
                   <div className="absolute top-3 left-3 bg-[var(--background)] border border-[var(--border)] px-2 py-1 text-[9px] uppercase tracking-widest font-bold">
-                    Best Seller
+                    Populaire
                   </div>
                 </div>
                 <div className="p-5 flex-1 flex flex-col justify-end">
@@ -185,7 +186,7 @@ export function HomePage() {
                   <div className="flex justify-between items-center mt-auto">
                     <span className="font-mono text-primary-400 font-bold">${product.price}</span>
                     <button onClick={() => handleAddToCart(product)} className="bg-transparent border border-primary-400 text-primary-400 px-3 py-1.5 text-[10px] uppercase tracking-widest font-bold hover:bg-primary-400 hover:text-black transition-colors">
-                      Add to Cart
+                      Ajouter
                     </button>
                   </div>
                 </div>
@@ -194,7 +195,7 @@ export function HomePage() {
           </div>
           <div className="mt-10 text-center sm:hidden">
             <Link to="/shop" className="inline-flex text-[10px] uppercase tracking-widest text-primary-400 items-center gap-2">
-              View All <ArrowRight className="h-3 w-3" />
+              Voir Tout <ArrowRight className="h-3 w-3" />
             </Link>
           </div>
         </div>
@@ -203,9 +204,12 @@ export function HomePage() {
       {/* Newsletter Promo (Upgraded with Firebase) */}
       <section className="py-24 bg-[var(--card)] border-y border-[var(--border)]">
         <div className="max-w-4xl mx-auto px-4 text-center">
-          <h2 className="text-3xl md:text-5xl font-serif italic mb-6">Join the HairNia Community</h2>
+          {/* 🔥 FIXED: Explicitly added a space before the span tag 🔥 */}
+          <h2 className="text-3xl md:text-5xl font-serif italic mb-6">
+            Rejoignez la communauté{' '}<span translate="no" className="notranslate">{siteConfig.siteName || 'Zakaar'}</span>
+          </h2>
           <p className="text-[var(--foreground)]/60 text-sm mb-10 max-w-2xl mx-auto leading-relaxed">
-            Get exclusive access to new drops, professional styling tips, and members-only discounts.
+            Bénéficiez d'un accès exclusif aux nouveautés, aux conseils de stylisme professionnels et aux réductions réservées aux membres.
           </p>
           
           {subscribeSuccess ? (
@@ -215,16 +219,16 @@ export function HomePage() {
               className="flex flex-col items-center justify-center p-8 border border-primary-400/30 max-w-md mx-auto bg-[var(--background)] shadow-2xl"
             >
               <CheckCircle className="w-12 h-12 text-primary-400 mb-4" strokeWidth={1.5} />
-              <h3 className="text-2xl font-serif italic text-white mb-2">Thank you!</h3>
+              <h3 className="text-2xl font-serif italic text-white mb-2">Merci!</h3>
               <p className="text-[var(--foreground)]/60 text-[11px] uppercase tracking-widest">
-                Your gift is on the way.
+                Votre inscription est confirmée.
               </p>
             </motion.div>
           ) : (
             <form className="flex flex-col sm:flex-row gap-0 justify-center max-w-md mx-auto relative" onSubmit={handleSubscribe}>
               <input 
                 type="email" 
-                placeholder="ENTER YOUR EMAIL" 
+                placeholder="SAISISSEZ VOTRE ADRESSE E-MAIL" 
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={isSubscribing}
@@ -236,7 +240,7 @@ export function HomePage() {
                 disabled={isSubscribing}
                 className="px-6 py-3 bg-primary-400 text-black text-[10px] uppercase font-bold tracking-widest hover:opacity-90 transition-opacity whitespace-nowrap disabled:opacity-70 disabled:cursor-wait"
               >
-                {isSubscribing ? 'SENDING...' : 'SUBSCRIBE'}
+                {isSubscribing ? 'ENVOI...' : "S'ABONNER"}
               </button>
             </form>
           )}

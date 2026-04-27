@@ -219,6 +219,12 @@ export function AdminDashboard() {
     const handleDeleteOrder = async (id: string) => {
         if (!window.confirm('Êtes-vous sûr de vouloir supprimer cette commande livrée définitivement ?')) return;
         try {
+            // 🔥 FIX: Delete all items in the subcollection first to avoid orphaned documents
+            const itemsSnap = await getDocs(collection(db, `orders/${id}/items`));
+            const deletePromises = itemsSnap.docs.map(itemDoc => deleteDoc(itemDoc.ref));
+            await Promise.all(deletePromises);
+
+            // Now safely delete the parent document
             await deleteDoc(doc(db, 'orders', id));
             fetchOrders();
             if(showToast) showToast('Commande supprimée avec succès!');
@@ -346,9 +352,15 @@ export function AdminDashboard() {
                 canvas.width = width;
                 canvas.height = height;
                 const ctx = canvas.getContext('2d');
+                
+                const format = field === 'logoUrl' ? 'image/png' : 'image/jpeg';
+                if (format === 'image/jpeg' && ctx) {
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fillRect(0, 0, width, height);
+                }
+
                 ctx?.drawImage(img, 0, 0, width, height);
 
-                const format = field === 'logoUrl' ? 'image/png' : 'image/jpeg';
                 const quality = field === 'logoUrl' ? 1 : 0.7;
                 const dataUrl = canvas.toDataURL(format, quality);
 
@@ -421,7 +433,7 @@ export function AdminDashboard() {
             ========================================= */}
             {activeTab === 'menu' && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 animate-in fade-in duration-300">
-                    <button onClick={() => setActiveTab('settings')} className="p-8 bg-[var(--card)] border border-[var(--border)] hover:border-primary-400 transition-all flex flex-col items-center justify-center gap-4 text-center group">
+                    <button onClick={() => { setActiveTab('settings'); window.scrollTo(0, 0); }} className="p-8 bg-[var(--card)] border border-[var(--border)] hover:border-primary-400 transition-all flex flex-col items-center justify-center gap-4 text-center group">
                         <Settings className="w-10 h-10 text-[var(--foreground)]/40 group-hover:text-primary-400 transition-colors" />
                         <div>
                             <h2 className="font-bold uppercase tracking-widest text-[13px] mb-2 text-[var(--foreground)]"> General Settings</h2>
@@ -429,7 +441,7 @@ export function AdminDashboard() {
                         </div>
                     </button>
 
-                    <button onClick={() => setActiveTab('products')} className="p-8 bg-[var(--card)] border border-[var(--border)] hover:border-primary-400 transition-all flex flex-col items-center justify-center gap-4 text-center group">
+                    <button onClick={() => { setActiveTab('products'); window.scrollTo(0, 0); }} className="p-8 bg-[var(--card)] border border-[var(--border)] hover:border-primary-400 transition-all flex flex-col items-center justify-center gap-4 text-center group">
                         <ShoppingBag className="w-10 h-10 text-[var(--foreground)]/40 group-hover:text-primary-400 transition-colors" />
                         <div>
                             <h2 className="font-bold uppercase tracking-widest text-[13px] mb-2 text-[var(--foreground)]"> Categories & Products</h2>
@@ -437,7 +449,7 @@ export function AdminDashboard() {
                         </div>
                     </button>
 
-                    <button onClick={() => { setActiveTab('orders'); fetchOrders(); }} className="p-8 bg-[var(--card)] border border-[var(--border)] hover:border-primary-400 transition-all flex flex-col items-center justify-center gap-4 text-center group">
+                    <button onClick={() => { setActiveTab('orders'); fetchOrders(); window.scrollTo(0, 0); }} className="p-8 bg-[var(--card)] border border-[var(--border)] hover:border-primary-400 transition-all flex flex-col items-center justify-center gap-4 text-center group">
                         <Receipt className="w-10 h-10 text-[var(--foreground)]/40 group-hover:text-primary-400 transition-colors" />
                         <div>
                             <h2 className="font-bold uppercase tracking-widest text-[13px] mb-2 text-[var(--foreground)]"> Commandes Client</h2>
@@ -445,7 +457,7 @@ export function AdminDashboard() {
                         </div>
                     </button>
 
-                    <button onClick={() => setActiveTab('blogs')} className="p-8 bg-[var(--card)] border border-[var(--border)] hover:border-primary-400 transition-all flex flex-col items-center justify-center gap-4 text-center group">
+                    <button onClick={() => { setActiveTab('blogs'); window.scrollTo(0, 0); }} className="p-8 bg-[var(--card)] border border-[var(--border)] hover:border-primary-400 transition-all flex flex-col items-center justify-center gap-4 text-center group">
                         <FileText className="w-10 h-10 text-[var(--foreground)]/40 group-hover:text-primary-400 transition-colors" />
                         <div>
                             <h2 className="font-bold uppercase tracking-widest text-[13px] mb-2 text-[var(--foreground)]"> Gestion of Blog</h2>
@@ -453,7 +465,7 @@ export function AdminDashboard() {
                         </div>
                     </button>
 
-                    <button onClick={() => setActiveTab('inbox')} className="sm:col-span-2 p-8 bg-[var(--card)] border border-[var(--border)] hover:border-primary-400 transition-all flex flex-col items-center justify-center gap-4 text-center group">
+                    <button onClick={() => { setActiveTab('inbox'); window.scrollTo(0, 0); }} className="sm:col-span-2 p-8 bg-[var(--card)] border border-[var(--border)] hover:border-primary-400 transition-all flex flex-col items-center justify-center gap-4 text-center group">
                         <Inbox className="w-10 h-10 text-[var(--foreground)]/40 group-hover:text-primary-400 transition-colors" />
                         <div>
                             <h2 className="font-bold uppercase tracking-widest text-[13px] mb-2 text-[var(--foreground)]"> Centre de Réception</h2>
@@ -583,7 +595,7 @@ export function AdminDashboard() {
                                         <label className="block text-[10px] uppercase tracking-widest font-bold mb-1">Category ID (no spaces)</label>
                                         <input type="text" value={cat.id || ''} onChange={(e) => {
                                                 const newCats = [...(configForm.categories || [])];
-                                                newCats[index].id = e.target.value.toLowerCase().replace(/\s+/g, '-');
+                                                newCats[index] = { ...newCats[index], id: e.target.value.toLowerCase().replace(/\s+/g, '-') };
                                                 setConfigForm({ ...configForm, categories: newCats });
                                             }} className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px]" required />
                                     </div>
@@ -591,7 +603,7 @@ export function AdminDashboard() {
                                         <label className="block text-[10px] uppercase tracking-widest font-bold mb-1">Display Name</label>
                                         <input type="text" value={cat.name || ''} onChange={(e) => {
                                                 const newCats = [...(configForm.categories || [])];
-                                                newCats[index].name = e.target.value;
+                                                newCats[index] = { ...newCats[index], name: e.target.value };
                                                 setConfigForm({ ...configForm, categories: newCats });
                                             }} className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px]" required />
                                     </div>
@@ -643,7 +655,7 @@ export function AdminDashboard() {
                                 <div key={order.id} className="p-5 bg-[var(--background)] border border-[var(--border)] flex justify-between items-center group hover:border-primary-400/50 transition-colors">
                                     <div>
                                         <p className="text-[9px] uppercase tracking-widest text-primary-400 font-bold mb-1">ID: {order.id.slice(0, 8)}</p>
-                                        <p className="text-[11px] font-mono text-[var(--foreground)]">${Number(order.totalAmount).toFixed(2)}</p>
+                                        <p className="text-[11px] font-mono text-[var(--foreground)]">${Number(order.totalAmount || 0).toFixed(2)}</p>
                                         <p className="text-[9px] text-[var(--foreground)]/40 uppercase mt-1">
                                             {order.createdAt?.toDate ? new Date(order.createdAt.toDate()).toLocaleString() : 'Recent'}
                                         </p>
@@ -864,7 +876,7 @@ export function AdminDashboard() {
 
                             <div className="flex justify-between items-center border-t border-[var(--border)] pt-4">
                                 <span className="text-[12px] font-bold uppercase tracking-widest opacity-60">Total</span>
-                                <span className="text-3xl font-mono font-bold text-primary-400">${Number(selectedOrder.totalAmount).toFixed(2)}</span>
+                                <span className="text-3xl font-mono font-bold text-primary-400">${Number(selectedOrder.totalAmount || 0).toFixed(2)}</span>
                             </div>
                         </div>
                     </div>

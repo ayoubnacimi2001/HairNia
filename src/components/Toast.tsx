@@ -6,8 +6,8 @@ export function Toast() {
   const { toastMessage, hideToast, siteConfig } = useStore();
   const [bump, setBump] = useState(false);
 
-  // Grab the site name from config, fallback to 'HairNia' if not set
-  const brandName = siteConfig?.siteName || 'HairNia';
+  // Grab the site name from config, fallback to 'Zakaar' if not set
+  const brandName = siteConfig?.siteName || 'Zakaar';
 
   useEffect(() => {
     if (toastMessage) {
@@ -25,24 +25,24 @@ export function Toast() {
         bump ? 'scale-105' : 'scale-100'
       }`}
     >
-      <div className="bg-[#1a1a1a] border border-primary-400 shadow-[0_0_20px_rgba(212,175,55,0.2)] p-4 flex items-center gap-4 min-w-[300px]">
+      <div className="bg-[var(--card)] border border-primary-400 shadow-[0_0_20px_rgba(212,175,55,0.2)] p-4 flex items-center gap-4 min-w-[300px]">
         <div className={`transition-transform duration-200 ${bump ? 'rotate-12' : 'rotate-0'}`}>
           <CheckCircle className="text-primary-400 w-5 h-5" />
         </div>
         <div className="flex-1">
-          {/* This now displays your Brand Name dynamically from the Admin Dashboard */}
-          <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-primary-400 mb-0.5">
+          {/* 🔥 Anti-translation shield on the toast brand name */}
+          <p translate="no" className="notranslate text-[10px] uppercase tracking-[0.2em] font-bold text-primary-400 mb-0.5">
             {brandName}
           </p>
-          <p className="text-[11px] text-white/90 font-medium">
+          <p className="text-[11px] text-[var(--foreground)]/90 font-medium">
             {toastMessage}
           </p>
         </div>
         <button 
           onClick={hideToast} 
-          className="p-1 hover:bg-white/5 transition-colors group"
+          className="p-1 hover:bg-[var(--foreground)]/10 transition-colors group"
         >
-          <X className="w-4 h-4 text-white/20 group-hover:text-white" />
+          <X className="w-4 h-4 text-[var(--foreground)]/40 group-hover:text-[var(--foreground)]" />
         </button>
       </div>
     </div>

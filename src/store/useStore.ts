@@ -14,6 +14,12 @@ export interface SiteConfig {
   heroTitle: string;
   heroSubtitle: string;
   contactEmail: string;
+  // 🔥 NEW CONTACT & SOCIAL FIELDS ADDED HERE
+  contactPhone?: string;
+  socialFacebook?: string;
+  socialInstagram?: string;
+  socialTwitter?: string;
+  // ----------------------------------------
   aboutTitle: string;
   aboutSubtitle: string;
   aboutBody1: string;
@@ -32,11 +38,6 @@ interface StoreState {
   setTheme: (theme: 'light' | 'dark') => void;
   toggleTheme: () => void;
   
-  // 🔥 1. The Blueprint for the Toast
-  toastMessage: string | null;
-  showToast: (message: string) => void;
-  hideToast: () => void;
-  
   cart: CartItem[];
   addToCart: (item: CartItem) => void;
   removeFromCart: (id: string) => void;
@@ -48,6 +49,11 @@ interface StoreState {
   
   siteConfig: SiteConfig;
   setSiteConfig: (config: Partial<SiteConfig>) => void;
+
+  // 🔥 NEW TOAST NOTIFICATION SYSTEM ADDED HERE
+  toastMessage: string | null;
+  showToast: (message: string) => void;
+  hideToast: () => void;
 }
 
 const defaultConfig: SiteConfig = {
@@ -55,6 +61,10 @@ const defaultConfig: SiteConfig = {
   heroTitle: 'Precision For The Modern Artisan',
   heroSubtitle: 'Experience a curated collection of barber-grade tools, elite grooming products, and exclusive salon apparel designed for master barbers.',
   contactEmail: 'HairNia@gmail.com',
+  contactPhone: '+1 234 567 890',
+  socialFacebook: '',
+  socialInstagram: '',
+  socialTwitter: '',
   aboutTitle: 'Built for Professionals',
   aboutSubtitle: 'HairNia was born out of a passion for the craft. We believe every barber, stylist, and grooming enthusiast deserves tools that are as dedicated as they are.',
   aboutBody1: 'Founded in 2026, HairNia started with a simple mission: to bridge the gap between premium quality and accessible pricing in the barbering industry. We saw professionals struggling with tools that either broke the bank or broke down mid-cut.',
@@ -77,15 +87,8 @@ export const useStore = create<StoreState>()(
       setTheme: (theme) => set({ theme }),
       toggleTheme: () => set((state) => ({ theme: state.theme === 'light' ? 'dark' : 'light' })),
       
-      // 🔥 2. The Engine for the Toast
-      toastMessage: null,
-      showToast: (message) => {
-        set({ toastMessage: message });
-        setTimeout(() => set({ toastMessage: null }), 3000);
-      },
-      hideToast: () => set({ toastMessage: null }),
-
       cart: [],
+      
       addToCart: (item) => set((state) => {
         const existing = state.cart.find((i) => i.id === item.id);
         if (existing) {
@@ -115,9 +118,20 @@ export const useStore = create<StoreState>()(
 
       siteConfig: defaultConfig,
       setSiteConfig: (config) => set((state) => ({ siteConfig: { ...state.siteConfig, ...config } })),
+
+      // 🔥 TOAST LOGIC: Automatically hides the toast after 3 seconds
+      toastMessage: null,
+      showToast: (message) => {
+        set({ toastMessage: message });
+        setTimeout(() => {
+          set({ toastMessage: null });
+        }, 3000);
+      },
+      hideToast: () => set({ toastMessage: null }),
     }),
-   {
-      name: 'hairnia-storage-v2', // Change this from 'hairnia-storage' to 'hairnia-storage-v2'
+    {
+      name: 'hairnia-storage',
+      // Ensure we don't save the toast message to local storage
       partialize: (state) => ({ theme: state.theme, cart: state.cart, siteConfig: state.siteConfig }),
     }
   )
