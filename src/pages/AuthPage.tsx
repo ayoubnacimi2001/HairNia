@@ -88,7 +88,8 @@ export function AuthPage() {
         }
       }
 
-      navigate('/shop');
+      // 🔥 FIX: Redirect to HomePage instead of ShopPage after successful Email login/signup
+      navigate('/');
     } catch (err: any) {
       if (err.code === 'auth/operation-not-allowed') {
         setError('Email/Password authentication is not enabled. Please go to your Firebase Console -> Authentication -> Sign-in method and enable the "Email/Password" provider.');
@@ -150,7 +151,8 @@ export function AuthPage() {
         }
       }
 
-      navigate('/shop');
+      // 🔥 FIX: Redirect to HomePage instead of ShopPage after successful Google login
+      navigate('/');
     } catch (err: any) {
       if (err.code === 'auth/popup-closed-by-user') {
         setError('Sign in cancelled');

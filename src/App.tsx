@@ -16,8 +16,9 @@ import { Blog } from './pages/Blog';
 import { SingleBlogPost } from './pages/SingleBlogPost';
 import { AiWidget } from './components/AiWidget';
 import { ScrollToTop } from './components/ScrollToTop';
-import { db } from './lib/firebase';
+import { db, auth } from './lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 
 export default function App() {
   const { theme, siteConfig } = useStore();
@@ -54,14 +55,9 @@ export default function App() {
   }, [siteConfig]);
 
   useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
-    let isMounted = true;
-
-    import('./lib/firebase').then(({ auth }) => {
-      if (!isMounted) return;
-      unsubscribe = auth.onAuthStateChanged((user) => {
-        useStore.getState().setUser(user);
-      });
+    // 🔥 FIX: Use static auth import to prevent async race conditions dropping the user session
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      useStore.getState().setUser(user);
     });
 
     // Fetch site config
@@ -78,8 +74,7 @@ export default function App() {
     loadConfig();
 
     return () => {
-      isMounted = false;
-      if (unsubscribe) unsubscribe();
+      unsubscribe();
     };
   }, []);
 
