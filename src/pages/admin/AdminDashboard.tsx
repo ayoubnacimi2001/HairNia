@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react'
 import { useStore } from '../../store/useStore';
 import { db } from '../../lib/firebase';
 import { doc, getDoc, setDoc, serverTimestamp, collection, query, getDocs, orderBy, limit, deleteDoc, addDoc, updateDoc } from 'firebase/firestore';
-import { Link } from 'react-router-dom';
-import { Trash2, Settings, ShoppingBag, FileText, Inbox, ArrowLeft, Receipt, ArrowRight, Edit2, X, Share2, LayoutTemplate } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Trash2, Settings, ShoppingBag, FileText, Inbox, ArrowLeft, Receipt, ArrowRight, Edit2, X, Share2, LayoutTemplate, Palette } from 'lucide-react';
+import { getPageTemplates } from '../../lib/pageTemplates';
 
 declare global {
     namespace JSX {
@@ -68,6 +69,7 @@ interface Page {
     id: string;
     title: string;
     slug: string;
+    visualBlocks?: any[]; // For the Visual Builder content
     content: string;
     showInMenu: boolean;
     createdAt?: any;
@@ -77,6 +79,7 @@ interface Page {
 export function AdminDashboard() {
     const { user, siteConfig, setSiteConfig, showToast } = useStore();
     const [isAdmin, setIsAdmin] = useState(false);
+    const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [configForm, setConfigForm] = useState(siteConfig);
     const [saving, setSaving] = useState(false);
@@ -251,12 +254,44 @@ export function AdminDashboard() {
                 slug,
                 createdAt: serverTimestamp()
             });
-            setNewPage({ title: '', slug: '', content: '', showInMenu: false, formSchema: [] });
+            setNewPage({ title: '', slug: '', content: '', showInMenu: false, formSchema: [], visualBlocks: [] });
             fetchPages();
             if(showToast) showToast('Page créée avec succès!');
         } catch (err) {
             console.error(err);
             alert('Failed to create page.');
+        } finally {
+            setCreatingPage(false);
+        }
+    };
+
+    const handleSelectTemplate = async (templateKey: keyof ReturnType<typeof getPageTemplates>) => {
+        if (!newPage.title) {
+            alert("Veuillez d'abord saisir un titre de page (Page Title).");
+            return;
+        }
+        setCreatingPage(true);
+        try {
+            const templates = getPageTemplates();
+            const blocks = templates[templateKey];
+            const slug = newPage.slug || newPage.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+            
+            const docRef = await addDoc(collection(db, 'pages'), {
+                title: newPage.title,
+                slug,
+                showInMenu: newPage.showInMenu,
+                visualBlocks: blocks,
+                createdAt: serverTimestamp()
+            });
+            
+            setNewPage({ title: '', slug: '', content: '', showInMenu: false, formSchema: [], visualBlocks: [] });
+            fetchPages();
+            
+            // Redirect to builder
+            navigate(`/admin/builder/${docRef.id}`);
+        } catch (err) {
+            console.error(err);
+            alert("Failed to create page with template.");
         } finally {
             setCreatingPage(false);
         }
@@ -893,10 +928,10 @@ export function AdminDashboard() {
                         
                         <div className="mb-10">
                             <h3 className="font-bold text-[11px] uppercase tracking-widest mb-4">Create New Page</h3>
-                            <form onSubmit={handleCreatePage} className="space-y-4">
+                            <div className="space-y-4">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Page Title</label>
+                                        <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Page Title *</label>
                                         <input type="text" value={newPage.title} onChange={e => setNewPage({ ...newPage, title: e.target.value })} className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px]" required />
                                     </div>
                                     <div>
@@ -904,86 +939,38 @@ export function AdminDashboard() {
                                         <input type="text" value={newPage.slug} onChange={e => setNewPage({ ...newPage, slug: e.target.value })} placeholder="auto-generated-if-blank" className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px]" />
                                     </div>
                                 </div>
-                                <div>
-                                    <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Page Content (HTML supported)</label>
-                                    <textarea value={newPage.content} onChange={e => setNewPage({ ...newPage, content: e.target.value })} className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-primary-400 text-[11px] h-32 resize-none" required />
-                                </div>
                                 <div className="flex items-center gap-2 mb-4">
                                     <input type="checkbox" id="showInMenu" checked={newPage.showInMenu} onChange={e => setNewPage({ ...newPage, showInMenu: e.target.checked })} className="accent-primary-400" />
                                     <label htmlFor="showInMenu" className="text-[10px] uppercase tracking-widest font-bold cursor-pointer">Show in Main Navigation Menu</label>
                                 </div>
 
-                                {/* ================== FORM BUILDER (CREATE) ================== */}
                                 <div className="mt-8 border-t border-[var(--border)] pt-8">
-                                    <div className="flex justify-between items-center mb-4">
-                                        <div>
-                                            <h4 className="font-bold text-[11px] uppercase tracking-widest">Data Connect Form (Optional)</h4>
-                                            <p className="text-[9px] uppercase tracking-widest opacity-60 mt-1">Add inputs to allow users to submit data directly on this page.</p>
-                                        </div>
-                                        <button type="button" onClick={() => setNewPage({...newPage, formSchema: [...(newPage.formSchema || []), {label: '', name: '', type: 'text', required: false}]})} className="px-4 py-2 bg-[var(--background)] border border-[var(--border)] text-primary-400 text-[9px] uppercase tracking-widest font-bold hover:border-primary-400 transition-colors">+ Add Field</button>
-                                    </div>
-                                    <div className="space-y-4">
-                                        {newPage.formSchema?.map((field, idx) => (
-                                            <div key={idx} className="p-4 bg-[var(--background)] border border-[var(--border)] flex flex-wrap gap-4 items-start">
-                                                <div className="flex-1 min-w-[150px]">
-                                                    <label className="block text-[9px] uppercase tracking-widest opacity-60 mb-1">Field Label</label>
-                                                    <input type="text" value={field.label} onChange={(e) => {
-                                                        const newSchema = [...(newPage.formSchema || [])];
-                                                        newSchema[idx].label = e.target.value;
-                                                        newSchema[idx].name = e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '_');
-                                                        setNewPage({...newPage, formSchema: newSchema});
-                                                    }} className="w-full bg-[var(--card)] border border-[var(--border)] p-2 text-[10px] focus:border-primary-400 outline-none" placeholder="e.g. Your Name" required />
-                                                </div>
-                                                <div className="flex-1 min-w-[120px]">
-                                                    <label className="block text-[9px] uppercase tracking-widest opacity-60 mb-1">Field Type</label>
-                                                    <select value={field.type} onChange={(e) => {
-                                                        const newSchema = [...(newPage.formSchema || [])];
-                                                        newSchema[idx].type = e.target.value;
-                                                        setNewPage({...newPage, formSchema: newSchema});
-                                                    }} className="w-full bg-[var(--card)] border border-[var(--border)] p-2 text-[10px] focus:border-primary-400 outline-none">
-                                                        <option value="text">Text (Short)</option>
-                                                        <option value="email">Email</option>
-                                                        <option value="number">Number</option>
-                                                        <option value="date">Date</option>
-                                                        <option value="textarea">Long Text (Area)</option>
-                                                        <option value="checkbox">Checkbox</option>
-                                                        <option value="select">Dropdown (Select)</option>
-                                                    </select>
-                                                </div>
-                                                {field.type === 'select' && (
-                                                    <div className="flex-1 min-w-[200px]">
-                                                        <label className="block text-[9px] uppercase tracking-widest opacity-60 mb-1">Options (comma separated)</label>
-                                                        <input type="text" value={field.options?.join(', ') || ''} onChange={(e) => {
-                                                            const newSchema = [...(newPage.formSchema || [])];
-                                                            newSchema[idx].options = e.target.value.split(',').map(s => s.trim());
-                                                            setNewPage({...newPage, formSchema: newSchema});
-                                                        }} className="w-full bg-[var(--card)] border border-[var(--border)] p-2 text-[10px] focus:border-primary-400 outline-none" placeholder="Opt 1, Opt 2" required />
-                                                    </div>
-                                                )}
-                                                <div className="flex items-center gap-2 mt-6">
-                                                    <input type="checkbox" checked={field.required} onChange={(e) => {
-                                                        const newSchema = [...(newPage.formSchema || [])];
-                                                        newSchema[idx].required = e.target.checked;
-                                                        setNewPage({...newPage, formSchema: newSchema});
-                                                    }} className="accent-primary-400" />
-                                                    <span className="text-[9px] uppercase tracking-widest">Required</span>
-                                                </div>
-                                                <button type="button" onClick={() => {
-                                                    const newSchema = newPage.formSchema?.filter((_, i) => i !== idx);
-                                                    setNewPage({...newPage, formSchema: newSchema});
-                                                }} className="mt-5 p-2 text-[var(--foreground)]/40 hover:text-red-500 transition-colors">
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
-                                            </div>
+                                    <h4 className="font-bold text-[11px] uppercase tracking-widest mb-4">Choose a Template & Create</h4>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                                        {[
+                                            { id: 'blankTemplate', name: 'Blank Page', desc: 'Start from scratch' },
+                                            { id: 'serviceTemplate', name: 'Services', desc: 'Professional service offering' },
+                                            { id: 'highTicketSalesTemplate', name: 'Sales Page', desc: 'High ticket trust focused' },
+                                            { id: 'customerServiceTemplate', name: 'Support', desc: 'Help center and links' },
+                                            { id: 'faqTemplate', name: 'FAQ', desc: 'Frequently asked questions' },
+                                            { id: 'fitnessProgramTemplate', name: 'Program', desc: 'Step-by-step breakdown' },
+                                            { id: 'paymentPlanTemplate', name: 'Financing', desc: 'Payment plans layout' },
+                                            { id: 'reservationTemplate', name: 'Booking', desc: 'Reservation focus' }
+                                        ].map(tpl => (
+                                            <button 
+                                                key={tpl.id} 
+                                                type="button"
+                                                onClick={() => handleSelectTemplate(tpl.id as any)}
+                                                disabled={creatingPage}
+                                                className="p-4 bg-[var(--background)] border border-[var(--border)] hover:border-primary-400 text-left transition-colors flex flex-col gap-2 group disabled:opacity-50"
+                                            >
+                                                <span className="font-bold text-[10px] uppercase tracking-widest group-hover:text-primary-400 transition-colors">{tpl.name}</span>
+                                                <span className="text-[9px] opacity-60 leading-relaxed">{tpl.desc}</span>
+                                            </button>
                                         ))}
-                                        {newPage.formSchema?.length === 0 && <p className="text-[10px] uppercase tracking-widest text-[var(--foreground)]/40 text-center py-4 italic">No dynamic form attached to this page.</p>}
                                     </div>
                                 </div>
-
-                                <button type="submit" disabled={creatingPage} className="px-6 py-3 bg-primary-400 text-black font-bold uppercase tracking-widest text-[10px] hover:opacity-90 disabled:opacity-50">
-                                    {creatingPage ? 'Creating...' : 'Publish Page'}
-                                </button>
-                            </form>
+                            </div>
                         </div>
 
                         <div>
@@ -999,6 +986,9 @@ export function AdminDashboard() {
                                             </div>
                                         </div>
                                         <div className="flex flex-col gap-2 flex-shrink-0">
+                                            <Link to={`/admin/builder/${p.id}`} className="p-2 text-primary-400 hover:text-primary-300 transition-colors bg-primary-400/10 rounded-sm" title="Design Page in Visual Builder">
+                                                <Palette className="w-4 h-4" />
+                                            </Link>
                                             <button onClick={() => setEditingPageObj(p)} className="p-2 text-[var(--foreground)]/40 hover:text-primary-400 transition-colors" title="Edit Page">
                                                 <Edit2 className="w-4 h-4" />
                                             </button>

@@ -26,10 +26,10 @@ export function Navbar() {
     { name: 'Home', path: '/' },
     { name: 'Shop All', path: '/shop' },
     ...(siteConfig.categories?.map(cat => ({ name: cat.name, path: `/shop?category=${cat.id}` })) || []),
+    ...dynamicPages,
     { name: 'Blog', path: '/blog' },
     { name: 'About', path: '/about' },
-    { name: 'Contact', path: '/contact' },
-    ...dynamicPages
+    { name: 'Contact', path: '/contact' }
   ];
 
   return (

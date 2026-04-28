@@ -14,6 +14,7 @@ import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { AdminProducts } from './pages/admin/AdminProducts';
 import { Blog } from './pages/Blog';
 import { SingleBlogPost } from './pages/SingleBlogPost';
+import { VisualBuilder } from './pages/admin/VisualBuilder';
 import { DynamicPage } from './pages/DynamicPage';
 import { AiWidget } from './components/AiWidget';
 import { ScrollToTop } from './components/ScrollToTop';
@@ -97,6 +98,7 @@ export default function App() {
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/products" element={<AdminProducts />} />
+            <Route path="/admin/builder/:pageId" element={<VisualBuilder />} />
           </Routes>
         </main>
         <Footer />

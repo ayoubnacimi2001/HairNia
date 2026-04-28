@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { BlockRenderer } from './admin/BlockRenderer';
 
 export function DynamicPage() {
     const { slug } = useParams();
@@ -63,15 +64,24 @@ export function DynamicPage() {
     if (!page) return <div className="min-h-screen flex items-center justify-center text-xl font-serif italic text-red-500">Page not found.</div>;
 
     return (
-        <div className="max-w-4xl mx-auto px-4 py-16 animate-in fade-in duration-500">
-            <h1 className="text-4xl font-serif italic mb-10">{page.title}</h1>
-            <div className="prose dark:prose-invert max-w-none text-[13px] leading-relaxed" dangerouslySetInnerHTML={{ __html: page.content }} />
+        <div className="animate-in fade-in duration-500">
+            {/* DYNAMIC VISUAL BLOCKS RENDERING */}
+            {page.visualBlocks && page.visualBlocks.length > 0 ? (
+                <div className="flex flex-col w-full min-h-[50vh]">
+                    {page.visualBlocks.map((block: any) => <BlockRenderer key={block.id} block={block} />)}
+                </div>
+            ) : (
+                <div className="max-w-4xl mx-auto px-4 py-16">
+                    <h1 className="text-4xl font-serif italic mb-10">{page.title}</h1>
+                    <div className="prose dark:prose-invert max-w-none text-[13px] leading-relaxed" dangerouslySetInnerHTML={{ __html: page.content }} />
+                </div>
+            )}
 
             {/* =========================================
                 DYNAMIC SCHEMA-DRIVEN FORM
             ========================================= */}
             {page.formSchema && page.formSchema.length > 0 && (
-                <div className="mt-16 bg-[var(--card)] border border-[var(--border)] p-8">
+                <div className="max-w-4xl mx-auto px-4 py-16 mt-16 bg-[var(--card)] border-y border-[var(--border)]">
                     {submitSuccess ? (
                         <div className="text-center py-8">
                             <h3 className="text-2xl font-serif italic text-primary-400 mb-4">Merci !</h3>
