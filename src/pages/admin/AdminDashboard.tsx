@@ -280,7 +280,7 @@ export function AdminDashboard() {
                 title: newPage.title,
                 slug,
                 showInMenu: newPage.showInMenu,
-                visualBlocks: blocks,
+                visualBlocks: blocks || [],
                 createdAt: serverTimestamp()
             });
             

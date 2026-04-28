@@ -1,4 +1,4 @@
-import { ArrowLeft, Monitor, Smartphone, Tablet, Plus, Save, Type, Image as ImageIcon, LayoutTemplate, Trash2 } from 'lucide-react';
+import { ArrowLeft, Monitor, Smartphone, Tablet, Plus, Save, Type, Image as ImageIcon, LayoutTemplate, Trash2, AlignLeft, AlignCenter, AlignRight, ChevronsLeftRight, ChevronsRightLeft, Undo2, Redo2, Columns, Table } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useBuilderStore } from '../../store/useBuilderStore';
@@ -11,17 +11,39 @@ import { db } from '../../lib/firebase';
 
 export function VisualBuilder() {
   const { pageId } = useParams();
-  const { blocks, setBlocks, activeBlockId, deviceView, setDeviceView, setActiveBlock, addBlock, removeBlock, reorderBlocks, updateBlockProps, updateBlockStyles } = useBuilderStore();
+  const { blocks, setBlocks, activeBlockId, deviceView, setDeviceView, setActiveBlock, addBlock, removeBlock, reorderBlocks, updateBlockProps, updateBlockStyles, undo, redo, past, future } = useBuilderStore();
   const [isSaving, setIsSaving] = useState(false);
   const [pageTitle, setPageTitle] = useState('Loading...');
 
-  const activeBlock = blocks.find(b => b.id === activeBlockId);
+  const activeBlock = blocks?.find(b => b.id === activeBlockId);
 
   // Setup drag sensors for mouse and keyboard accessibility
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
+
+  // Global Keyboard Shortcuts for Undo/Redo
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Check for Ctrl on Windows/Linux or Cmd on Mac
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key.toLowerCase() === 'z') {
+          e.preventDefault();
+          if (e.shiftKey) {
+            redo();
+          } else {
+            undo();
+          }
+        } else if (e.key.toLowerCase() === 'y') {
+          e.preventDefault();
+          redo();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [undo, redo]);
 
   useEffect(() => {
     const loadPageData = async () => {
@@ -88,6 +110,12 @@ export function VisualBuilder() {
           </Link>
           <div className="text-[10px] uppercase tracking-widest font-bold opacity-60 line-clamp-1 flex-1 text-center px-2">{pageTitle}</div>
           <div className="flex items-center gap-1">
+            <button onClick={undo} disabled={!past?.length} className="p-2 text-[var(--foreground)]/60 hover:text-primary-400 hover:bg-[var(--background)] rounded-sm transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title="Annuler (Ctrl+Z)">
+              <Undo2 className="w-4 h-4" />
+            </button>
+            <button onClick={redo} disabled={!future?.length} className="p-2 text-[var(--foreground)]/60 hover:text-primary-400 hover:bg-[var(--background)] rounded-sm transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title="Rétablir (Ctrl+Y)">
+              <Redo2 className="w-4 h-4" />
+            </button>
             {activeBlock && (
               <button onClick={() => {
                 if(window.confirm('Delete this block?')) removeBlock(activeBlock.id);
@@ -117,18 +145,24 @@ export function VisualBuilder() {
             <button onClick={() => addBlock('image')} className="flex flex-col items-center justify-center gap-1 p-2 bg-[var(--background)] border border-[var(--border)] hover:border-primary-400 transition-colors text-[9px] uppercase tracking-widest">
               <ImageIcon className="w-4 h-4 opacity-60" /> Image
             </button>
+            <button onClick={() => addBlock('heroSplitImage')} className="flex flex-col items-center justify-center gap-1 p-2 bg-[var(--background)] border border-[var(--border)] hover:border-primary-400 transition-colors text-[9px] uppercase tracking-widest">
+              <Columns className="w-4 h-4 opacity-60" /> Split Hero
+            </button>
+            <button onClick={() => addBlock('pricingTable')} className="flex flex-col items-center justify-center gap-1 p-2 bg-[var(--background)] border border-[var(--border)] hover:border-primary-400 transition-colors text-[9px] uppercase tracking-widest">
+              <Table className="w-4 h-4 opacity-60" /> Pricing
+            </button>
           </div>
 
           {/* Dnd-Kit Sortable List */}
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={blocks.map(b => b.id)} strategy={verticalListSortingStrategy}>
+            <SortableContext items={blocks?.map(b => b.id) || []} strategy={verticalListSortingStrategy}>
               <div className="space-y-3 mb-8">
-                {blocks.length === 0 && (
+                {(!blocks || blocks.length === 0) && (
                   <div className="text-center p-8 border border-dashed border-[var(--border)] text-[10px] uppercase tracking-widest opacity-40">
                     No blocks added yet
                   </div>
                 )}
-                {blocks.map(block => (
+                {blocks?.map(block => (
                   <SortableBlockItem 
                     key={block.id} 
                     block={block} 
@@ -179,6 +213,170 @@ export function VisualBuilder() {
                     </div>
                   </>
                 )}
+                {activeBlock.type === 'textSplit' && (
+                  <>
+                    <div>
+                      <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Title</label>
+                      <input type="text" value={activeBlock.props.title || ''} onChange={(e) => updateBlockProps(activeBlock.id, { title: e.target.value })} className="w-full bg-[var(--background)] border border-[var(--border)] p-2 text-[11px] focus:border-primary-400 outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Content</label>
+                      <textarea value={activeBlock.props.content || ''} onChange={(e) => updateBlockProps(activeBlock.id, { content: e.target.value })} className="w-full bg-[var(--background)] border border-[var(--border)] p-2 text-[11px] h-24 resize-none focus:border-primary-400 outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Image URL</label>
+                      <input type="url" value={activeBlock.props.imageUrl || ''} onChange={(e) => updateBlockProps(activeBlock.id, { imageUrl: e.target.value })} className="w-full bg-[var(--background)] border border-[var(--border)] p-2 text-[11px] focus:border-primary-400 outline-none" />
+                    </div>
+                  </>
+                )}
+                {activeBlock.type === 'featureGrid' && (
+                  <div className="space-y-2">
+                    {activeBlock.props.features?.map((feat: any, index: number) => (
+                      <div key={index} className="p-3 bg-[var(--background)] border border-[var(--border)] space-y-2">
+                        <input type="text" value={feat.title || ''} onChange={(e) => {
+                          const newFeatures = [...activeBlock.props.features];
+                          newFeatures[index] = { ...newFeatures[index], title: e.target.value };
+                          updateBlockProps(activeBlock.id, { features: newFeatures });
+                        }} placeholder="Feature Title" className="w-full bg-[var(--card)] border border-[var(--border)] p-2 text-[10px] focus:border-primary-400 outline-none" />
+                        <textarea value={feat.description || ''} onChange={(e) => {
+                          const newFeatures = [...activeBlock.props.features];
+                          newFeatures[index] = { ...newFeatures[index], description: e.target.value };
+                          updateBlockProps(activeBlock.id, { features: newFeatures });
+                        }} placeholder="Feature Description" className="w-full bg-[var(--card)] border border-[var(--border)] p-2 text-[10px] h-16 resize-none focus:border-primary-400 outline-none" />
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {activeBlock.type === 'accordion' && (
+                  <div className="space-y-2">
+                    {activeBlock.props.items?.map((item: any, index: number) => (
+                      <div key={index} className="p-3 bg-[var(--background)] border border-[var(--border)] space-y-2">
+                        <input type="text" value={item.question || ''} onChange={(e) => {
+                          const newItems = [...activeBlock.props.items];
+                          newItems[index] = { ...newItems[index], question: e.target.value };
+                          updateBlockProps(activeBlock.id, { items: newItems });
+                        }} placeholder="Question" className="w-full bg-[var(--card)] border border-[var(--border)] p-2 text-[10px] focus:border-primary-400 outline-none" />
+                        <textarea value={item.answer || ''} onChange={(e) => {
+                          const newItems = [...activeBlock.props.items];
+                          newItems[index] = { ...newItems[index], answer: e.target.value };
+                          updateBlockProps(activeBlock.id, { items: newItems });
+                        }} placeholder="Answer" className="w-full bg-[var(--card)] border border-[var(--border)] p-2 text-[10px] h-16 resize-none focus:border-primary-400 outline-none" />
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {activeBlock.type === 'testimonials' && (
+                  <div className="space-y-2">
+                    {activeBlock.props.reviews?.map((rev: any, index: number) => (
+                      <div key={index} className="p-3 bg-[var(--background)] border border-[var(--border)] space-y-2">
+                        <input type="text" value={rev.name || ''} onChange={(e) => {
+                          const newReviews = [...activeBlock.props.reviews];
+                          newReviews[index] = { ...newReviews[index], name: e.target.value };
+                          updateBlockProps(activeBlock.id, { reviews: newReviews });
+                        }} placeholder="Reviewer Name" className="w-full bg-[var(--card)] border border-[var(--border)] p-2 text-[10px] focus:border-primary-400 outline-none" />
+                        <input type="text" value={rev.role || ''} onChange={(e) => {
+                          const newReviews = [...activeBlock.props.reviews];
+                          newReviews[index] = { ...newReviews[index], role: e.target.value };
+                          updateBlockProps(activeBlock.id, { reviews: newReviews });
+                        }} placeholder="Reviewer Role" className="w-full bg-[var(--card)] border border-[var(--border)] p-2 text-[10px] focus:border-primary-400 outline-none" />
+                        <textarea value={rev.text || ''} onChange={(e) => {
+                          const newReviews = [...activeBlock.props.reviews];
+                          newReviews[index] = { ...newReviews[index], text: e.target.value };
+                          updateBlockProps(activeBlock.id, { reviews: newReviews });
+                        }} placeholder="Review Text" className="w-full bg-[var(--card)] border border-[var(--border)] p-2 text-[10px] h-16 resize-none focus:border-primary-400 outline-none" />
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {activeBlock.type === 'dynamicForm' && (
+                  <>
+                    <div>
+                      <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Title</label>
+                      <input type="text" value={activeBlock.props.title || ''} onChange={(e) => updateBlockProps(activeBlock.id, { title: e.target.value })} className="w-full bg-[var(--background)] border border-[var(--border)] p-2 text-[11px] focus:border-primary-400 outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Subtitle</label>
+                      <input type="text" value={activeBlock.props.subtitle || ''} onChange={(e) => updateBlockProps(activeBlock.id, { subtitle: e.target.value })} className="w-full bg-[var(--background)] border border-[var(--border)] p-2 text-[11px] focus:border-primary-400 outline-none" />
+                    </div>
+                  </>
+                )}
+                {activeBlock.type === 'heroSplitImage' && (
+                  <>
+                    <div>
+                      <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Title</label>
+                      <input type="text" value={activeBlock.props.title || ''} onChange={(e) => updateBlockProps(activeBlock.id, { title: e.target.value })} className="w-full bg-[var(--background)] border border-[var(--border)] p-2 text-[11px] focus:border-primary-400 outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Subtitle</label>
+                      <textarea value={activeBlock.props.subtitle || ''} onChange={(e) => updateBlockProps(activeBlock.id, { subtitle: e.target.value })} className="w-full bg-[var(--background)] border border-[var(--border)] p-2 text-[11px] h-24 resize-none focus:border-primary-400 outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Image URL</label>
+                      <input type="url" value={activeBlock.props.imageUrl || ''} onChange={(e) => updateBlockProps(activeBlock.id, { imageUrl: e.target.value })} className="w-full bg-[var(--background)] border border-[var(--border)] p-2 text-[11px] focus:border-primary-400 outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Texte du bouton</label>
+                      <input type="text" value={activeBlock.props.buttonText || ''} onChange={(e) => updateBlockProps(activeBlock.id, { buttonText: e.target.value })} className="w-full bg-[var(--background)] border border-[var(--border)] p-2 text-[11px] focus:border-primary-400 outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Lien du bouton</label>
+                      <input type="text" value={activeBlock.props.buttonUrl || ''} onChange={(e) => updateBlockProps(activeBlock.id, { buttonUrl: e.target.value })} placeholder="https://..." className="w-full bg-[var(--background)] border border-[var(--border)] p-2 text-[11px] focus:border-primary-400 outline-none" />
+                    </div>
+                  </>
+                )}
+                {activeBlock.type === 'pricingTable' && (
+                  <>
+                    <div>
+                      <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Title</label>
+                      <input type="text" value={activeBlock.props.title || ''} onChange={(e) => updateBlockProps(activeBlock.id, { title: e.target.value })} className="w-full bg-[var(--background)] border border-[var(--border)] p-2 text-[11px] focus:border-primary-400 outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Subtitle</label>
+                      <input type="text" value={activeBlock.props.subtitle || ''} onChange={(e) => updateBlockProps(activeBlock.id, { subtitle: e.target.value })} className="w-full bg-[var(--background)] border border-[var(--border)] p-2 text-[11px] focus:border-primary-400 outline-none" />
+                    </div>
+                    <div className="space-y-2 mt-4">
+                      <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Tiers</label>
+                      {activeBlock.props.tiers?.map((tier: any, index: number) => (
+                        <div key={index} className="p-3 bg-[var(--background)] border border-[var(--border)] space-y-2">
+                          <input type="text" value={tier.name || ''} onChange={(e) => {
+                            const newTiers = [...activeBlock.props.tiers];
+                            newTiers[index] = { ...newTiers[index], name: e.target.value };
+                            updateBlockProps(activeBlock.id, { tiers: newTiers });
+                          }} placeholder="Nom du plan" className="w-full bg-[var(--card)] border border-[var(--border)] p-2 text-[10px] focus:border-primary-400 outline-none" />
+                          <div className="flex gap-2">
+                            <input type="text" value={tier.price || ''} onChange={(e) => {
+                              const newTiers = [...activeBlock.props.tiers];
+                              newTiers[index] = { ...newTiers[index], price: e.target.value };
+                              updateBlockProps(activeBlock.id, { tiers: newTiers });
+                            }} placeholder="Prix" className="w-1/2 bg-[var(--card)] border border-[var(--border)] p-2 text-[10px] focus:border-primary-400 outline-none" />
+                            <input type="text" value={tier.period || ''} onChange={(e) => {
+                              const newTiers = [...activeBlock.props.tiers];
+                              newTiers[index] = { ...newTiers[index], period: e.target.value };
+                              updateBlockProps(activeBlock.id, { tiers: newTiers });
+                            }} placeholder="Période (ex: / Mois)" className="w-1/2 bg-[var(--card)] border border-[var(--border)] p-2 text-[10px] focus:border-primary-400 outline-none" />
+                          </div>
+                          <input type="text" value={tier.buttonText || ''} onChange={(e) => {
+                            const newTiers = [...activeBlock.props.tiers];
+                            newTiers[index] = { ...newTiers[index], buttonText: e.target.value };
+                            updateBlockProps(activeBlock.id, { tiers: newTiers });
+                          }} placeholder="Texte du bouton" className="w-full bg-[var(--card)] border border-[var(--border)] p-2 text-[10px] focus:border-primary-400 outline-none" />
+                          <input type="text" value={tier.buttonUrl || ''} onChange={(e) => {
+                            const newTiers = [...activeBlock.props.tiers];
+                            newTiers[index] = { ...newTiers[index], buttonUrl: e.target.value };
+                            updateBlockProps(activeBlock.id, { tiers: newTiers });
+                          }} placeholder="Lien du bouton" className="w-full bg-[var(--card)] border border-[var(--border)] p-2 text-[10px] focus:border-primary-400 outline-none" />
+                          <label className="flex items-center gap-2 text-[10px] uppercase cursor-pointer">
+                            <input type="checkbox" checked={tier.isPopular || false} onChange={(e) => {
+                              const newTiers = [...activeBlock.props.tiers];
+                              newTiers[index] = { ...newTiers[index], isPopular: e.target.checked };
+                              updateBlockProps(activeBlock.id, { tiers: newTiers });
+                            }} /> Marquer comme Populaire
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Styles Editor */}
@@ -195,6 +393,58 @@ export function VisualBuilder() {
                   <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Padding</label>
                   <input type="text" value={activeBlock.styles.padding || ''} onChange={(e) => updateBlockStyles(activeBlock.id, { padding: e.target.value })} placeholder="e.g. 4rem 1rem" className="w-full bg-[var(--background)] border border-[var(--border)] p-2 text-[11px] font-mono focus:border-primary-400 outline-none" />
                 </div>
+                <div>
+                  <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Alignement du texte</label>
+                  <div className="grid grid-cols-3 gap-1 bg-[var(--background)] border border-[var(--border)] p-1">
+                    <button onClick={() => updateBlockStyles(activeBlock.id, { textAlign: 'left' })} className={`p-2 flex justify-center items-center transition-colors ${activeBlock.styles.textAlign === 'left' ? 'bg-primary-400 text-black' : 'hover:bg-white/5'}`}><AlignLeft className="w-4 h-4" /></button>
+                    <button onClick={() => updateBlockStyles(activeBlock.id, { textAlign: 'center' })} className={`p-2 flex justify-center items-center transition-colors ${activeBlock.styles.textAlign === 'center' || !activeBlock.styles.textAlign ? 'bg-primary-400 text-black' : 'hover:bg-white/5'}`}><AlignCenter className="w-4 h-4" /></button>
+                    <button onClick={() => updateBlockStyles(activeBlock.id, { textAlign: 'right' })} className={`p-2 flex justify-center items-center transition-colors ${activeBlock.styles.textAlign === 'right' ? 'bg-primary-400 text-black' : 'hover:bg-white/5'}`}><AlignRight className="w-4 h-4" /></button>
+                  </div>
+                </div>
+                
+                {['text', 'hero', 'testimonials', 'textSplit', 'accordion', 'featureGrid'].includes(activeBlock.type) && (
+                  <div>
+                    <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Taille du texte</label>
+                    <select value={activeBlock.styles.fontSize || ''} onChange={(e) => updateBlockStyles(activeBlock.id, { fontSize: e.target.value })} className="w-full bg-[var(--background)] border border-[var(--border)] p-2 text-[11px] focus:border-primary-400 outline-none">
+                      <option value="">Défaut</option>
+                      <option value="12px">Petit (12px)</option>
+                      <option value="14px">Normal (14px)</option>
+                      <option value="16px">Moyen (16px)</option>
+                      <option value="20px">Grand (20px)</option>
+                      <option value="24px">Très Grand (24px)</option>
+                    </select>
+                  </div>
+                )}
+                
+                {['image', 'textSplit'].includes(activeBlock.type) && (
+                  <div>
+                    <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Taille de l'image ({activeBlock.styles.width || '100%'})</label>
+                    <input type="range" min="10" max="100" value={parseInt(activeBlock.styles.width || '100')} onChange={(e) => updateBlockStyles(activeBlock.id, { width: `${e.target.value}%` })} className="w-full accent-primary-400" />
+                  </div>
+                )}
+                {activeBlock.type === 'textSplit' && (
+                  <div>
+                    <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Disposition</label>
+                    <div className="grid grid-cols-2 gap-1 bg-[var(--background)] border border-[var(--border)] p-1">
+                      <button 
+                        onClick={() => updateBlockStyles(activeBlock.id, { flexDirection: 'row-reverse' })} 
+                        className={`p-2 flex justify-center items-center gap-2 text-[9px] uppercase tracking-widest transition-colors ${
+                          activeBlock.styles.flexDirection === 'row-reverse' ? 'bg-primary-400 text-black' : 'hover:bg-white/5'
+                        }`}
+                      >
+                        <ChevronsLeftRight className="w-4 h-4" /> Image à gauche
+                      </button>
+                      <button 
+                        onClick={() => updateBlockStyles(activeBlock.id, { flexDirection: 'row' })} 
+                        className={`p-2 flex justify-center items-center gap-2 text-[9px] uppercase tracking-widest transition-colors ${
+                          activeBlock.styles.flexDirection === 'row' || !activeBlock.styles.flexDirection ? 'bg-primary-400 text-black' : 'hover:bg-white/5'
+                        }`}
+                      >
+                        <ChevronsRightLeft className="w-4 h-4" /> Image à droite
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -216,13 +466,13 @@ export function VisualBuilder() {
         {/* The Actual Canvas Container */}
         <div className="flex-1 overflow-y-auto p-4 md:p-8 flex justify-center items-start overflow-x-hidden">
           <div className={`w-full bg-[var(--background)] min-h-[800px] shadow-2xl transition-all duration-500 ease-in-out border border-[var(--border)] ${getCanvasWidth()}`}>
-            {blocks.length === 0 ? (
+            {(!blocks || blocks.length === 0) ? (
               <div className="flex flex-col items-center justify-center h-[800px] text-[10px] uppercase tracking-widest opacity-40 text-center p-10">
-                Canvas Area<br/>Add a block to start building
+                Aucun bloc n'a été ajouté.<br/>Utilisez la barre latérale pour ajouter votre premier bloc.
               </div>
             ) : (
               <div className="flex flex-col w-full min-h-full">
-                {blocks.map(block => <BlockRenderer key={block.id} block={block} />)}
+                {blocks?.map(block => <BlockRenderer key={block.id} block={block} />)}
               </div>
             )}
           </div>
