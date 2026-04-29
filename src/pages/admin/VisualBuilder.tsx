@@ -1,4 +1,4 @@
-import { ArrowLeft, Monitor, Smartphone, Tablet, Plus, Save, Type, Image as ImageIcon, LayoutTemplate, Trash2, AlignLeft, AlignCenter, AlignRight, ChevronsLeftRight, ChevronsRightLeft, Undo2, Redo2, Columns, Table } from 'lucide-react';
+import { ArrowLeft, Monitor, Smartphone, Tablet, Plus, Save, Type, Image as ImageIcon, LayoutTemplate, Trash2, AlignLeft, AlignCenter, AlignRight, ChevronsLeftRight, ChevronsRightLeft, Undo2, Redo2, Columns, Table, Grid3X3, TextSelect } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useBuilderStore } from '../../store/useBuilderStore';
@@ -108,7 +108,7 @@ export function VisualBuilder() {
           <Link to="/admin" className="p-2 hover:bg-[var(--background)] rounded-sm transition-colors text-[var(--foreground)]/60 hover:text-primary-400">
             <ArrowLeft className="w-5 h-5" />
           </Link>
-          <div className="text-[10px] uppercase tracking-widest font-bold opacity-60 line-clamp-1 flex-1 text-center px-2">{pageTitle}</div>
+          <div className="text-[10px] uppercase tracking-widest font-bold opacity-60 line-clamp-1 flex-1 text-center px-2"><span>{pageTitle}</span></div>
           <div className="flex items-center gap-1">
             <button onClick={undo} disabled={!past?.length} className="p-2 text-[var(--foreground)]/60 hover:text-primary-400 hover:bg-[var(--background)] rounded-sm transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title="Annuler (Ctrl+Z)">
               <Undo2 className="w-4 h-4" />
@@ -145,11 +145,14 @@ export function VisualBuilder() {
             <button onClick={() => addBlock('image')} className="flex flex-col items-center justify-center gap-1 p-2 bg-[var(--background)] border border-[var(--border)] hover:border-primary-400 transition-colors text-[9px] uppercase tracking-widest">
               <ImageIcon className="w-4 h-4 opacity-60" /> Image
             </button>
-            <button onClick={() => addBlock('heroSplitImage')} className="flex flex-col items-center justify-center gap-1 p-2 bg-[var(--background)] border border-[var(--border)] hover:border-primary-400 transition-colors text-[9px] uppercase tracking-widest">
-              <Columns className="w-4 h-4 opacity-60" /> Split Hero
-            </button>
             <button onClick={() => addBlock('pricingTable')} className="flex flex-col items-center justify-center gap-1 p-2 bg-[var(--background)] border border-[var(--border)] hover:border-primary-400 transition-colors text-[9px] uppercase tracking-widest">
               <Table className="w-4 h-4 opacity-60" /> Pricing
+            </button>
+            <button onClick={() => addBlock('prelineProductGrid')} className="flex flex-col items-center justify-center gap-1 p-2 bg-[var(--background)] border border-[var(--border)] hover:border-primary-400 transition-colors text-[9px] uppercase tracking-widest">
+              <Grid3X3 className="w-4 h-4 opacity-60" /> Preline Grid
+            </button>
+            <button onClick={() => addBlock('prelineStory')} className="flex flex-col items-center justify-center gap-1 p-2 bg-[var(--background)] border border-[var(--border)] hover:border-primary-400 transition-colors text-[9px] uppercase tracking-widest">
+              <TextSelect className="w-4 h-4 opacity-60" /> Preline Story
             </button>
           </div>
 
@@ -177,7 +180,7 @@ export function VisualBuilder() {
           {/* Active Block Editor (Props & Styles) */}
           {activeBlock && (
             <div className="border-t border-[var(--border)] pt-6 mt-6 animate-in fade-in">
-              <h2 className="text-[11px] uppercase tracking-widest font-bold mb-4 text-primary-400">Edit: {activeBlock.type}</h2>
+              <h2 className="text-[11px] uppercase tracking-widest font-bold mb-4 text-primary-400"><span>Edit: {activeBlock.type}</span></h2>
               
               {/* Props Editor */}
               <div className="space-y-4 mb-6">
@@ -192,6 +195,18 @@ export function VisualBuilder() {
                     <div>
                       <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Subtitle</label>
                       <input type="text" value={activeBlock.props.subtitle || ''} onChange={(e) => updateBlockProps(activeBlock.id, { subtitle: e.target.value })} className="w-full bg-[var(--background)] border border-[var(--border)] p-2 text-[11px] focus:border-primary-400 outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">URL de l'image de fond</label>
+                      <input type="url" value={activeBlock.props.bgImageUrl || ''} onChange={(e) => updateBlockProps(activeBlock.id, { bgImageUrl: e.target.value })} placeholder="https://..." className="w-full bg-[var(--background)] border border-[var(--border)] p-2 text-[11px] focus:border-primary-400 outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Texte du bouton</label>
+                      <input type="text" value={activeBlock.props.buttonText || ''} onChange={(e) => updateBlockProps(activeBlock.id, { buttonText: e.target.value })} placeholder="ex: Shop Now" className="w-full bg-[var(--background)] border border-[var(--border)] p-2 text-[11px] focus:border-primary-400 outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Lien du bouton</label>
+                      <input type="text" value={activeBlock.props.buttonUrl || ''} onChange={(e) => updateBlockProps(activeBlock.id, { buttonUrl: e.target.value })} placeholder="/shop" className="w-full bg-[var(--background)] border border-[var(--border)] p-2 text-[11px] focus:border-primary-400 outline-none" />
                     </div>
                   </>
                 )}
@@ -300,30 +315,6 @@ export function VisualBuilder() {
                     </div>
                   </>
                 )}
-                {activeBlock.type === 'heroSplitImage' && (
-                  <>
-                    <div>
-                      <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Title</label>
-                      <input type="text" value={activeBlock.props.title || ''} onChange={(e) => updateBlockProps(activeBlock.id, { title: e.target.value })} className="w-full bg-[var(--background)] border border-[var(--border)] p-2 text-[11px] focus:border-primary-400 outline-none" />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Subtitle</label>
-                      <textarea value={activeBlock.props.subtitle || ''} onChange={(e) => updateBlockProps(activeBlock.id, { subtitle: e.target.value })} className="w-full bg-[var(--background)] border border-[var(--border)] p-2 text-[11px] h-24 resize-none focus:border-primary-400 outline-none" />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Image URL</label>
-                      <input type="url" value={activeBlock.props.imageUrl || ''} onChange={(e) => updateBlockProps(activeBlock.id, { imageUrl: e.target.value })} className="w-full bg-[var(--background)] border border-[var(--border)] p-2 text-[11px] focus:border-primary-400 outline-none" />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Texte du bouton</label>
-                      <input type="text" value={activeBlock.props.buttonText || ''} onChange={(e) => updateBlockProps(activeBlock.id, { buttonText: e.target.value })} className="w-full bg-[var(--background)] border border-[var(--border)] p-2 text-[11px] focus:border-primary-400 outline-none" />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Lien du bouton</label>
-                      <input type="text" value={activeBlock.props.buttonUrl || ''} onChange={(e) => updateBlockProps(activeBlock.id, { buttonUrl: e.target.value })} placeholder="https://..." className="w-full bg-[var(--background)] border border-[var(--border)] p-2 text-[11px] focus:border-primary-400 outline-none" />
-                    </div>
-                  </>
-                )}
                 {activeBlock.type === 'pricingTable' && (
                   <>
                     <div>
@@ -355,6 +346,11 @@ export function VisualBuilder() {
                               updateBlockProps(activeBlock.id, { tiers: newTiers });
                             }} placeholder="Période (ex: / Mois)" className="w-1/2 bg-[var(--card)] border border-[var(--border)] p-2 text-[10px] focus:border-primary-400 outline-none" />
                           </div>
+                          <input type="text" value={tier.features?.join(', ') || ''} onChange={(e) => {
+                            const newTiers = [...activeBlock.props.tiers];
+                            newTiers[index] = { ...newTiers[index], features: e.target.value.split(',').map((f: string) => f.trim()) };
+                            updateBlockProps(activeBlock.id, { tiers: newTiers });
+                          }} placeholder="Fonctionnalités (séparées par virgule)" className="w-full bg-[var(--card)] border border-[var(--border)] p-2 text-[10px] focus:border-primary-400 outline-none" />
                           <input type="text" value={tier.buttonText || ''} onChange={(e) => {
                             const newTiers = [...activeBlock.props.tiers];
                             newTiers[index] = { ...newTiers[index], buttonText: e.target.value };
@@ -374,6 +370,76 @@ export function VisualBuilder() {
                           </label>
                         </div>
                       ))}
+                    </div>
+                  </>
+                )}
+                {activeBlock.type === 'prelineProductGrid' && (
+                  <>
+                    <div>
+                      <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Title</label>
+                      <input type="text" value={activeBlock.props.title || ''} onChange={(e) => updateBlockProps(activeBlock.id, { title: e.target.value })} className="w-full bg-[var(--background)] border border-[var(--border)] p-2 text-[11px] focus:border-primary-400 outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Button URL (For Buy Now)</label>
+                      <input type="text" value={activeBlock.props.buttonUrl || ''} onChange={(e) => updateBlockProps(activeBlock.id, { buttonUrl: e.target.value })} className="w-full bg-[var(--background)] border border-[var(--border)] p-2 text-[11px] focus:border-primary-400 outline-none" />
+                    </div>
+                    <div className="space-y-2 mt-4">
+                      <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Products Array</label>
+                      {activeBlock.props.products?.map((prod: any, index: number) => (
+                        <div key={index} className="p-3 bg-[var(--background)] border border-[var(--border)] space-y-2">
+                          <input type="text" value={prod.name || ''} onChange={(e) => {
+                            const newProds = [...activeBlock.props.products];
+                            newProds[index] = { ...newProds[index], name: e.target.value };
+                            updateBlockProps(activeBlock.id, { products: newProds });
+                          }} placeholder="Product Name" className="w-full bg-[var(--card)] border border-[var(--border)] p-2 text-[10px] focus:border-primary-400 outline-none" />
+                          <div className="flex gap-2">
+                            <input type="text" value={prod.price || ''} onChange={(e) => {
+                              const newProds = [...activeBlock.props.products];
+                              newProds[index] = { ...newProds[index], price: e.target.value };
+                              updateBlockProps(activeBlock.id, { products: newProds });
+                            }} placeholder="Price" className="w-1/2 bg-[var(--card)] border border-[var(--border)] p-2 text-[10px] focus:border-primary-400 outline-none" />
+                            <input type="text" value={prod.origin || ''} onChange={(e) => {
+                              const newProds = [...activeBlock.props.products];
+                              newProds[index] = { ...newProds[index], origin: e.target.value };
+                              updateBlockProps(activeBlock.id, { products: newProds });
+                            }} placeholder="Origin" className="w-1/2 bg-[var(--card)] border border-[var(--border)] p-2 text-[10px] focus:border-primary-400 outline-none" />
+                          </div>
+                          <input type="text" value={prod.notes || ''} onChange={(e) => {
+                            const newProds = [...activeBlock.props.products];
+                            newProds[index] = { ...newProds[index], notes: e.target.value };
+                            updateBlockProps(activeBlock.id, { products: newProds });
+                          }} placeholder="Tasting Notes" className="w-full bg-[var(--card)] border border-[var(--border)] p-2 text-[10px] focus:border-primary-400 outline-none" />
+                          <input type="text" value={prod.image || ''} onChange={(e) => {
+                            const newProds = [...activeBlock.props.products];
+                            newProds[index] = { ...newProds[index], image: e.target.value };
+                            updateBlockProps(activeBlock.id, { products: newProds });
+                          }} placeholder="Image URL" className="w-full bg-[var(--card)] border border-[var(--border)] p-2 text-[10px] focus:border-primary-400 outline-none" />
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+                {activeBlock.type === 'prelineStory' && (
+                  <>
+                    <div>
+                      <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Title</label>
+                      <input type="text" value={activeBlock.props.title || ''} onChange={(e) => updateBlockProps(activeBlock.id, { title: e.target.value })} className="w-full bg-[var(--background)] border border-[var(--border)] p-2 text-[11px] focus:border-primary-400 outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Description</label>
+                      <textarea value={activeBlock.props.description || ''} onChange={(e) => updateBlockProps(activeBlock.id, { description: e.target.value })} className="w-full bg-[var(--background)] border border-[var(--border)] p-2 text-[11px] h-24 resize-none focus:border-primary-400 outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Image URL</label>
+                      <input type="url" value={activeBlock.props.imageUrl || ''} onChange={(e) => updateBlockProps(activeBlock.id, { imageUrl: e.target.value })} className="w-full bg-[var(--background)] border border-[var(--border)] p-2 text-[11px] focus:border-primary-400 outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Button Text</label>
+                      <input type="text" value={activeBlock.props.buttonText || ''} onChange={(e) => updateBlockProps(activeBlock.id, { buttonText: e.target.value })} className="w-full bg-[var(--background)] border border-[var(--border)] p-2 text-[11px] focus:border-primary-400 outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Button URL</label>
+                      <input type="text" value={activeBlock.props.buttonUrl || ''} onChange={(e) => updateBlockProps(activeBlock.id, { buttonUrl: e.target.value })} className="w-full bg-[var(--background)] border border-[var(--border)] p-2 text-[11px] focus:border-primary-400 outline-none" />
                     </div>
                   </>
                 )}
@@ -402,7 +468,7 @@ export function VisualBuilder() {
                   </div>
                 </div>
                 
-                {['text', 'hero', 'testimonials', 'textSplit', 'accordion', 'featureGrid'].includes(activeBlock.type) && (
+                {['text', 'hero', 'testimonials', 'textSplit', 'accordion', 'featureGrid', 'prelineStory'].includes(activeBlock.type) && (
                   <div>
                     <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Taille du texte</label>
                     <select value={activeBlock.styles.fontSize || ''} onChange={(e) => updateBlockStyles(activeBlock.id, { fontSize: e.target.value })} className="w-full bg-[var(--background)] border border-[var(--border)] p-2 text-[11px] focus:border-primary-400 outline-none">
@@ -416,13 +482,13 @@ export function VisualBuilder() {
                   </div>
                 )}
                 
-                {['image', 'textSplit'].includes(activeBlock.type) && (
+                {['image', 'textSplit', 'prelineStory'].includes(activeBlock.type) && (
                   <div>
-                    <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Taille de l'image ({activeBlock.styles.width || '100%'})</label>
+                    <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80"><span>Taille de l'image ({activeBlock.styles.width || '100%'})</span></label>
                     <input type="range" min="10" max="100" value={parseInt(activeBlock.styles.width || '100')} onChange={(e) => updateBlockStyles(activeBlock.id, { width: `${e.target.value}%` })} className="w-full accent-primary-400" />
                   </div>
                 )}
-                {activeBlock.type === 'textSplit' && (
+                {['textSplit', 'prelineStory'].includes(activeBlock.type) && (
                   <div>
                     <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Disposition</label>
                     <div className="grid grid-cols-2 gap-1 bg-[var(--background)] border border-[var(--border)] p-1">
@@ -444,6 +510,33 @@ export function VisualBuilder() {
                       </button>
                     </div>
                   </div>
+                )}
+                
+                {activeBlock.type === 'hero' && (
+                  <div>
+                    <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80"><span>Opacité du calque d'image ({activeBlock.styles.bgOverlayOpacity || '0'})</span></label>
+                    <input type="range" min="0" max="1" step="0.1" value={activeBlock.styles.bgOverlayOpacity || 0} onChange={(e) => updateBlockStyles(activeBlock.id, { bgOverlayOpacity: parseFloat(e.target.value) })} className="w-full accent-primary-400" />
+                  </div>
+                )}
+                
+                {['pricingTable', 'prelineProductGrid'].includes(activeBlock.type) && (
+                  <div>
+                    <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Couleur de fond des cartes</label>
+                    <input type="text" value={activeBlock.styles.cardBgColor || ''} onChange={(e) => updateBlockStyles(activeBlock.id, { cardBgColor: e.target.value })} placeholder="ex: #ffffff, transparent, ou rgba(0,0,0,0.5)" className="w-full bg-[var(--background)] border border-[var(--border)] p-2 text-[11px] font-mono focus:border-primary-400 outline-none" />
+                  </div>
+                )}
+                
+                {['hero', 'pricingTable', 'prelineProductGrid', 'prelineStory'].includes(activeBlock.type) && (
+                  <>
+                    <div>
+                      <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Couleur du bouton</label>
+                      <input type="text" value={activeBlock.styles.buttonBgColor || ''} onChange={(e) => updateBlockStyles(activeBlock.id, { buttonBgColor: e.target.value })} placeholder="ex: var(--theme-primary) ou #d4af37" className="w-full bg-[var(--background)] border border-[var(--border)] p-2 text-[11px] font-mono focus:border-primary-400 outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] mb-1 uppercase tracking-widest opacity-80">Couleur du texte du bouton</label>
+                      <input type="text" value={activeBlock.styles.buttonTextColor || ''} onChange={(e) => updateBlockStyles(activeBlock.id, { buttonTextColor: e.target.value })} placeholder="ex: #000000" className="w-full bg-[var(--background)] border border-[var(--border)] p-2 text-[11px] font-mono focus:border-primary-400 outline-none" />
+                    </div>
+                  </>
                 )}
               </div>
             </div>

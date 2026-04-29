@@ -35,9 +35,22 @@ export function BlockRenderer({ block }: { block: PageBlock }) {
   switch (type) {
     case 'hero':
       return (
-        <div style={{ ...containerStyles, alignItems: getAlignItems(styles.textAlign) }} className={`flex flex-col justify-center w-full ${getAlignmentClasses(styles.textAlign)}`}>
-          <h1 className="text-4xl md:text-6xl font-serif italic mb-4">{props.title || 'Hero Title'}</h1>
-          <p className="opacity-80" style={{ fontSize: fontSize || '14px' }}>{props.subtitle || 'Hero subtitle goes here'}</p>
+        <div style={{ ...containerStyles, alignItems: getAlignItems(styles.textAlign) }} className={`relative flex flex-col justify-center w-full overflow-hidden ${getAlignmentClasses(styles.textAlign)}`}>
+          {props.bgImageUrl && (
+            <>
+              <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${props.bgImageUrl})` }} />
+              <div className="absolute inset-0 bg-black pointer-events-none" style={{ opacity: styles.bgOverlayOpacity !== undefined ? styles.bgOverlayOpacity : 0 }} />
+            </>
+          )}
+          <div className="relative z-10 w-full max-w-6xl mx-auto flex flex-col p-4" style={{ alignItems: getAlignItems(styles.textAlign) }}>
+            <h1 className="text-4xl md:text-6xl font-serif italic mb-4" dangerouslySetInnerHTML={{ __html: props.title || 'Hero Title' }}></h1>
+            <p className="opacity-80 mb-6 leading-relaxed" style={{ fontSize: fontSize || '14px' }}>{props.subtitle || 'Hero subtitle goes here'}</p>
+            {props.buttonText && (
+              <a href={props.buttonUrl || '#'} style={{ backgroundColor: styles.buttonBgColor || 'var(--theme-primary)', color: styles.buttonTextColor || '#000000' }} className="inline-block py-3 px-8 text-[11px] font-bold uppercase tracking-widest rounded-sm transition-opacity hover:opacity-90 text-center">
+                {props.buttonText}
+              </a>
+            )}
+          </div>
         </div>
       );
     case 'text':
@@ -80,7 +93,7 @@ export function BlockRenderer({ block }: { block: PageBlock }) {
             {props.items?.map((item: any, i: number) => (
               <details key={i} className="group border border-[var(--border)] bg-[var(--background)] p-4 cursor-pointer text-left">
                 <summary className="font-bold uppercase tracking-widest text-[11px] list-none flex justify-between items-center outline-none">
-                  {item.question}
+                  <span>{item.question}</span>
                   <span className="transition group-open:rotate-180 opacity-50">▼</span>
                 </summary>
                 <p className="mt-4 opacity-70 leading-relaxed" style={{ fontSize: fontSize || '12px' }}>{item.answer}</p>
@@ -133,54 +146,100 @@ export function BlockRenderer({ block }: { block: PageBlock }) {
           </div>
         </div>
       );
-    case 'heroSplitImage':
+    case 'pricingTable':
       return (
         <div style={{ ...containerStyles, justifyContent: getJustifyContent(styles.textAlign) }} className={`w-full flex ${getAlignmentClasses(styles.textAlign)}`}>
-          <div className="bg-transparent dark:bg-gray-900 w-full">
-            <div className="container px-6 py-16 mx-auto">
-              <div className="items-center lg:flex">
-                <div className="w-full lg:w-1/2">
-                  <div className="lg:max-w-lg">
-                    <h1 className="text-3xl font-semibold text-gray-800 dark:text-white lg:text-4xl" dangerouslySetInnerHTML={{ __html: props.title || 'Title' }}></h1>
-                    <p className="mt-3 text-gray-600 dark:text-gray-400" style={{ fontSize: fontSize || '16px' }}>{props.subtitle}</p>
-                    {props.buttonText && (
-                      <a href={props.buttonUrl || '#'} className="inline-block px-5 py-2 mt-6 text-sm tracking-wider text-white uppercase transition-colors duration-300 transform bg-blue-600 rounded-lg lg:w-auto hover:bg-blue-500 focus:outline-none focus:bg-blue-500 text-center">
-                        {props.buttonText}
+          <div className="w-full">
+            <div className="container px-6 py-8 mx-auto">
+              {props.title && (
+                <div className="text-center mb-8">
+                  <h2 className="text-2xl font-bold text-gray-800 lg:text-3xl dark:text-gray-100"><span>{props.title}</span></h2>
+                  {props.subtitle && <p className="mt-4 text-gray-500 dark:text-gray-400" style={{ fontSize: fontSize || '16px' }}><span>{props.subtitle}</span></p>}
+                </div>
+              )}
+              <div className="flex flex-col items-center justify-center space-y-8 lg:-mx-4 lg:flex-row lg:items-stretch lg:space-y-0">
+                {props.tiers?.map((tier: any, i: number) => (
+                  <div key={i} className={`flex flex-col w-full max-w-sm p-8 space-y-8 text-center bg-white border-2 ${tier.isPopular ? 'border-primary-400' : 'border-gray-200'} rounded-lg lg:mx-4 dark:bg-gray-900 dark:border-gray-700`} style={styles.cardBgColor ? { backgroundColor: styles.cardBgColor } : {}}>
+                      <div className="flex-shrink-0">
+                          <h2 className="inline-flex items-center justify-center px-2 font-semibold tracking-tight text-blue-400 uppercase rounded-lg bg-gray-50 dark:bg-gray-700">
+                              <span>{tier.name}</span>
+                          </h2>
+                      </div>
+                      <div className="flex-shrink-0">
+                          <span className="pt-2 text-3xl font-bold text-gray-800 uppercase dark:text-gray-100">
+                              <span>{tier.price}</span>
+                          </span>
+                          {tier.period && (
+                            <span className="text-gray-500 dark:text-gray-400 ml-1">
+                                <span>{tier.period}</span>
+                            </span>
+                          )}
+                      </div>
+                      <ul className="flex-1 space-y-4">
+                          {tier.features?.map((feature: string, idx: number) => (
+                            <li key={idx} className="text-gray-500 dark:text-gray-400">
+                                <span>{feature}</span>
+                            </li>
+                          ))}
+                      </ul>
+                      <a href={tier.buttonUrl || '#'} style={{ backgroundColor: styles.buttonBgColor || '#3b82f6', color: styles.buttonTextColor || '#ffffff' }} className="inline-flex items-center justify-center px-4 py-2 font-medium uppercase transition-colors rounded-lg hover:opacity-90 focus:outline-none">
+                          <span>{tier.buttonText || 'Start'}</span>
                       </a>
-                    )}
                   </div>
-                </div>
-                <div className="flex items-center justify-center w-full mt-6 lg:mt-0 lg:w-1/2">
-                  <img className="w-full h-full lg:max-w-3xl object-cover" src={props.imageUrl} alt="Hero representation" style={{ width: width || '100%' }} />
-                </div>
+                ))}
               </div>
             </div>
           </div>
         </div>
       );
-    case 'pricingTable':
+    case 'prelineProductGrid':
       return (
         <div style={{ ...containerStyles, justifyContent: getJustifyContent(styles.textAlign) }} className={`w-full flex ${getAlignmentClasses(styles.textAlign)}`}>
-          <div className="bg-transparent dark:bg-gray-900 w-full">
-            <div className="container px-6 py-8 mx-auto">
-              <div className="sm:flex sm:items-center sm:justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-800 lg:text-3xl dark:text-gray-100">{props.title}</h2>
-                  <p className="mt-4 text-gray-500 dark:text-gray-400" style={{ fontSize: fontSize || '16px' }}>{props.subtitle}</p>
-                </div>
-              </div>
-              <div className="grid gap-6 mt-16 -mx-6 sm:gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {props.tiers?.map((tier: any, i: number) => (
-                  <div key={i} className={`px-6 py-4 transition-colors duration-300 transform rounded-lg ${tier.isPopular ? 'bg-gray-700 dark:bg-gray-800' : 'hover:bg-gray-200 dark:hover:bg-gray-800'}`}>
-                    <p className={`text-lg font-medium ${tier.isPopular ? 'text-gray-100' : 'text-gray-800 dark:text-gray-100'}`}>{tier.name}</p>
-                    <h4 className={`mt-2 text-3xl font-semibold ${tier.isPopular ? 'text-gray-100' : 'text-gray-800 dark:text-gray-100'}`}>{tier.price} <span className={`text-base font-normal ${tier.isPopular ? 'text-gray-400' : 'text-gray-600 dark:text-gray-400'}`}>{tier.period}</span></h4>
-                    {tier.buttonText && (
-                      <a href={tier.buttonUrl || '#'} className="block text-center w-full px-4 py-2 mt-10 font-medium tracking-wide text-white bg-blue-500 rounded-md">
-                        {tier.buttonText}
-                      </a>
-                    )}
+          <div className="max-w-[85rem] px-4 py-10 sm:px-6 lg:px-8 lg:py-14 mx-auto w-full">
+            <div className="max-w-2xl mx-auto text-center mb-10 lg:mb-14">
+              <h2 className="text-2xl font-bold md:text-4xl md:leading-tight dark:text-white" dangerouslySetInnerHTML={{ __html: props.title || 'Products' }}></h2>
+            </div>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {props.products?.map((product: any, i: number) => (
+                <div key={i} className="group flex flex-col h-full border border-gray-200 shadow-sm rounded-xl overflow-hidden dark:border-gray-700 dark:shadow-slate-700/[.7]" style={styles.cardBgColor ? { backgroundColor: styles.cardBgColor } : { backgroundColor: '#ffffff' }}>
+                  <div className="h-52 flex flex-col justify-center items-center bg-gray-100 rounded-t-xl dark:bg-slate-800 overflow-hidden">
+                    <img src={product.image} alt={product.name} className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500 ease-in-out" />
                   </div>
-                ))}
+                  <div className="p-4 md:p-6 flex flex-col flex-1 text-left">
+                    <span className="block mb-1 text-xs font-semibold uppercase text-primary-400">{product.origin}</span>
+                    <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-300 dark:hover:text-white">{product.name}</h3>
+                    <p className="mt-3 text-gray-500 dark:text-gray-400 text-sm flex-1">{product.notes}</p>
+                    <div className="mt-4 flex items-center justify-between">
+                      <span className="text-lg font-bold text-gray-800 dark:text-gray-200">{product.price}</span>
+                      <a href={props.buttonUrl || '#'} style={{ backgroundColor: styles.buttonBgColor || 'var(--theme-primary)', color: styles.buttonTextColor || '#000000' }} className="py-2 px-3 inline-flex justify-center items-center gap-x-2 text-sm font-semibold rounded-lg border border-transparent hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all">Buy Now</a>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    case 'prelineStory':
+      return (
+        <div style={{ ...containerStyles, justifyContent: getJustifyContent(styles.textAlign) }} className={`w-full flex ${getAlignmentClasses(styles.textAlign)}`}>
+          <div className="max-w-[85rem] px-4 py-10 sm:px-6 lg:px-8 lg:py-14 mx-auto w-full">
+            <div className={`md:grid md:grid-cols-2 md:items-center md:gap-12 xl:gap-32 ${styles.flexDirection === 'row-reverse' ? 'md:grid-flow-col-dense' : ''}`}>
+              <div className={`${styles.flexDirection === 'row-reverse' ? 'col-start-2' : ''}`}>
+                <img className="rounded-xl w-full object-cover" src={props.imageUrl} alt={props.title} style={{ width: width || '100%', height: 'auto', maxHeight: '600px' }} />
+              </div>
+              <div className="mt-5 sm:mt-10 lg:mt-0 text-left">
+                <div className="space-y-6 sm:space-y-8">
+                  <div className="space-y-2 md:space-y-4">
+                    <h2 className="font-bold text-3xl lg:text-4xl text-gray-800 dark:text-gray-200" dangerouslySetInnerHTML={{ __html: props.title || 'Story' }}></h2>
+                    <p className="text-gray-500 dark:text-gray-400" style={{ fontSize: fontSize || '16px' }}>{props.description}</p>
+                  </div>
+                  {props.buttonText && (
+                    <div>
+                      <a href={props.buttonUrl || '#'} style={{ backgroundColor: styles.buttonBgColor || 'var(--theme-primary)', color: styles.buttonTextColor || '#000000' }} className="inline-flex justify-center items-center gap-x-3 text-center hover:opacity-90 border border-transparent text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 transition py-3 px-4">{props.buttonText}</a>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -189,7 +248,7 @@ export function BlockRenderer({ block }: { block: PageBlock }) {
     default:
       return (
         <div style={containerStyles} className="p-8 border border-dashed border-[var(--border)] opacity-50 text-center text-[10px] uppercase tracking-widest w-full">
-          Unknown block type: {type}
+          <span>Unknown block type: {type}</span>
         </div>
       );
   }

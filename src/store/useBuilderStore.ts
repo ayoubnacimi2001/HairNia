@@ -89,23 +89,33 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
     const newBlock: PageBlock = {
       id: `block-${crypto.randomUUID()}`, // Generate unique ID
       type,
-      props: type === 'heroSplitImage' 
-        ? { 
-            title: 'Best place to choose your <br> <span class="text-blue-500">clothes</span>', 
-            subtitle: 'Lorem ipsum dolor sit amet...', 
-            imageUrl: 'https://merakiui.com/images/components/Catalogue-pana.svg',
-            buttonText: 'Shop Now',
-            buttonUrl: '#'
-          }
-        : type === 'pricingTable'
+      props: type === 'pricingTable'
         ? {
             title: 'Simple, transparent pricing',
             subtitle: 'No Contracts. No surprise fees.',
             tiers: [
-              { name: 'Intro', price: '$19', period: '/ Month', buttonText: 'Choose plan', buttonUrl: '#', isPopular: false },
-              { name: 'Popular', price: '$99', period: '/ Month', buttonText: 'Choose plan', buttonUrl: '#', isPopular: true },
-              { name: 'Enterprise', price: '$199', period: '/ Month', buttonText: 'Choose plan', buttonUrl: '#', isPopular: false }
+              { name: 'Casual', price: 'Free', period: '', buttonText: 'Start free', buttonUrl: '#', isPopular: false, features: ['Up to 5 projects', 'Up to 10 collaborators', '2Gb of storage'] },
+              { name: 'Professional', price: '$24.90', period: '/month', buttonText: 'Start free trial', buttonUrl: '#', isPopular: true, features: ['Up to 10 projects', 'Up to 20 collaborators', '10Gb of storage', 'Real-time collaborations'] },
+              { name: 'Expert', price: '$49.90', period: '/month', buttonText: 'Start free trial', buttonUrl: '#', isPopular: false, features: ['Unlimited projects', 'Unlimited collaborators', 'Unlimited storage', 'Real-time collaborations', '24x7 Support'] }
             ]
+          }
+        : type === 'prelineProductGrid'
+        ? {
+            title: 'New this season',
+            buttonUrl: '/cart',
+            products: [
+              { name: 'Tokyo Roast', price: '$12.50', notes: 'Matcha, Vanilla, Milk Chocolate', origin: 'Japan', image: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=600&q=80' },
+              { name: 'Shibuya Blend', price: '$14.00', notes: 'Red Apple, Caramel, Almond', origin: 'Colombia', image: 'https://images.unsplash.com/photo-1497935586351-b67a49e012bf?auto=format&fit=crop&w=600&q=80' },
+              { name: 'Kyoto Drip', price: '$9.50', notes: 'Cherry Blossom, Honey, Pecan', origin: 'Japan', image: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=600&q=80' }
+            ]
+          }
+        : type === 'prelineStory'
+        ? {
+            title: 'A Family Tradition of Rich, Aromatic Coffee',
+            description: 'Coffee has the power to connect generations—whether you\'re diving into your favorite manga or enjoying our expertly crafted blends inspired by the heart of Tokyo.',
+            buttonText: 'Watch the Video',
+            buttonUrl: '#',
+            imageUrl: 'https://images.unsplash.com/photo-1600093463592-8e36ae95ef56?auto=format&fit=crop&w=800&q=80'
           }
         : {},
       styles: { padding: '4rem 1rem', backgroundColor: 'transparent' } // Default styles
