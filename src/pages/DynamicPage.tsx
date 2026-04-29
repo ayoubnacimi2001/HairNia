@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { BlockRenderer } from './admin/BlockRenderer';
+import { DateRangePicker } from '../components/DateRangePicker';
 
 export function DynamicPage() {
     const { slug } = useParams();
@@ -138,6 +139,11 @@ export function DynamicPage() {
                                                 {field.label} {field.required && <span className="text-primary-400">*</span>}
                                             </label>
                                         </div>
+                                    ) : field.type === 'date-range' ? (
+                                        <DateRangePicker 
+                                            value={formData[field.name] || null}
+                                            onChange={(val) => handleInputChange(field.name, val)}
+                                        />
                                     ) : (
                                         <input 
                                             type={field.type} // handles 'text', 'email', 'date', 'number', etc.

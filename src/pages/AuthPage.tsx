@@ -76,7 +76,7 @@ export function AuthPage() {
         });
       }
 
-      if (isSpecialAdmin) {
+      if (isSpecialAdmin && result.user.emailVerified) {
         try {
           await setDoc(doc(db, 'admins', result.user.uid), {
             email: emailToUse,
@@ -128,7 +128,7 @@ export function AuthPage() {
           await setDoc(userDocRef, {
             email: result.user.email,
             name: result.user.displayName || 'Google User',
-            role: isSpecialAdmin ? 'admin' : 'user',
+            role: 'user',
             authProvider: 'google',
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp()
@@ -139,7 +139,7 @@ export function AuthPage() {
       }
 
       // Auto-setup admin for the specified email
-      if (isSpecialAdmin) {
+      if (isSpecialAdmin && result.user.emailVerified) {
         try {
           await setDoc(doc(db, 'admins', result.user.uid), {
             email: result.user.email,

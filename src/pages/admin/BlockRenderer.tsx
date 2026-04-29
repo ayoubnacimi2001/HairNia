@@ -1,4 +1,6 @@
 import { PageBlock } from '../../store/useBuilderStore';
+import { DateRangePicker, RangeValue } from '../../components/DateRangePicker';
+import { useState } from 'react';
 
 const getAlignmentClasses = (align: string | undefined) => {
   switch (align) {
@@ -27,6 +29,34 @@ const getAlignItems = (align: string | undefined) => {
     default: return 'center';
   }
 };
+
+function DateRangeBlock({ props, styles, containerStyles }: { props: any, styles: any, containerStyles: any }) {
+  const [date, setDate] = useState<RangeValue>(null);
+  return (
+    <div style={{ ...containerStyles, alignItems: getAlignItems(styles.textAlign) }} className={`relative flex flex-col justify-center w-full overflow-hidden ${getAlignmentClasses(styles.textAlign)} py-16`}>
+      {props.bgImageUrl && (
+        <>
+          <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${props.bgImageUrl})` }} />
+          <div className="absolute inset-0 bg-black pointer-events-none" style={{ opacity: styles.bgOverlayOpacity !== undefined ? styles.bgOverlayOpacity : 0.5 }} />
+        </>
+      )}
+      <div className="relative z-10 w-full max-w-md mx-auto p-10 bg-[var(--card)]/95 backdrop-blur-md border border-[var(--border)] shadow-2xl rounded-2xl">
+        {props.title && <h2 className="text-2xl font-serif italic mb-2">{props.title}</h2>}
+        {props.subtitle && <p className="text-[11px] uppercase tracking-widest opacity-60 mb-6">{props.subtitle}</p>}
+        <div className={`mt-6 flex flex-col gap-4 ${styles.textAlign === 'left' ? 'items-start' : styles.textAlign === 'right' ? 'items-end' : 'items-center'}`}>
+          <div className="w-full text-left">
+                    <DateRangePicker value={date} onChange={setDate} inline={true} />
+          </div>
+          {props.buttonText && (
+            <a href={props.buttonUrl || '#'} style={{ backgroundColor: styles.buttonBgColor || 'var(--theme-primary)', color: styles.buttonTextColor || '#000000' }} className="inline-block w-full py-4 px-8 text-[11px] font-bold uppercase tracking-widest transition-opacity hover:opacity-90 text-center shadow-lg rounded-lg">
+              {props.buttonText}
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function BlockRenderer({ block }: { block: PageBlock }) {
   const { type, props, styles = {} } = block;
@@ -211,7 +241,7 @@ export function BlockRenderer({ block }: { block: PageBlock }) {
                     <p className="mt-3 text-gray-500 dark:text-gray-400 text-sm flex-1">{product.notes}</p>
                     <div className="mt-4 flex items-center justify-between">
                       <span className="text-lg font-bold text-gray-800 dark:text-gray-200">{product.price}</span>
-                      <a href={props.buttonUrl || '#'} style={{ backgroundColor: styles.buttonBgColor || 'var(--theme-primary)', color: styles.buttonTextColor || '#000000' }} className="py-2 px-3 inline-flex justify-center items-center gap-x-2 text-sm font-semibold rounded-lg border border-transparent hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all">Buy Now</a>
+                      <a href={product.buttonUrl || props.buttonUrl || '#'} style={{ backgroundColor: styles.buttonBgColor || 'var(--theme-primary)', color: styles.buttonTextColor || '#000000' }} className="py-2 px-3 inline-flex justify-center items-center gap-x-2 text-sm font-semibold rounded-lg border border-transparent hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all">Buy Now</a>
                     </div>
                   </div>
                 </div>
@@ -245,6 +275,39 @@ export function BlockRenderer({ block }: { block: PageBlock }) {
           </div>
         </div>
       );
+    case 'faqGrid':
+      return (
+        <div style={{ ...containerStyles, justifyContent: getJustifyContent(styles.textAlign) }} className={`relative w-full flex ${getAlignmentClasses(styles.textAlign)} py-16`}>
+          {props.bgImageUrl && (
+            <>
+              <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${props.bgImageUrl})` }} />
+              <div className="absolute inset-0 bg-black pointer-events-none" style={{ opacity: styles.bgOverlayOpacity !== undefined ? styles.bgOverlayOpacity : 0.5 }} />
+            </>
+          )}
+          <div className="relative z-10 container px-6 mx-auto max-w-6xl">
+              {props.title && <h2 className="text-3xl font-serif italic text-[var(--foreground)] mb-12">{props.title}</h2>}
+              <div className="grid grid-cols-1 gap-8 md:grid-cols-2 xl:grid-cols-3">
+                  {props.items?.map((item: any, i: number) => (
+                      <div key={i} className="text-left bg-[var(--card)] border border-[var(--border)] p-6 shadow-lg">
+                          <div className="inline-block p-3 text-black bg-primary-400 rounded-sm mb-6">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                          </div>
+                          <div>
+                              <h3 className="text-lg font-bold text-[var(--foreground)] tracking-wide mb-3">{item.question}</h3>
+                              <p className="text-[13px] text-[var(--foreground)]/60 leading-relaxed" style={{ fontSize: fontSize || '13px' }}>
+                                  {item.answer}
+                              </p>
+                          </div>
+                      </div>
+                  ))}
+              </div>
+          </div>
+        </div>
+      );
+        case 'dateRange':
+          return <DateRangeBlock props={props} styles={styles} containerStyles={containerStyles} />;
     default:
       return (
         <div style={containerStyles} className="p-8 border border-dashed border-[var(--border)] opacity-50 text-center text-[10px] uppercase tracking-widest w-full">
